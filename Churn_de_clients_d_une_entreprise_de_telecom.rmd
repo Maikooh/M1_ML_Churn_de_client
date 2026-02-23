@@ -1,0 +1,62 @@
+---
+title: "Churn de clients d'une entreprise de télécom"
+subtitle: "Prédiction de la rupture de contrat"
+author: "Fadli Aaron et Barthelemy Bastien"
+date: |
+  \small Réalisé dans le cadre du Master MECEN de l’Université de Tours \newline
+  le `r format(Sys.Date(), '%d %B %Y')`
+
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: FALSE
+    toc_depth: 3
+    number_sections: true
+fontsize: 11pt
+geometry: margin=2.5cm
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{float}
+  - \usepackage{graphicx}
+  - \usepackage{caption}
+  - \usepackage{titlesec}
+  - \titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+  - \titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+  - \usepackage{titling}
+  - \posttitle{\end{center}}
+html_document:
+    toc: FALSE
+    toc_float: FALSE
+    theme: united
+
+---
+
+\vspace*{\fill}
+\begin{abstract}
+
+Cet étude propose une analyse approfondie des dynamiques de résiliation client (churn) dans le secteur des télécommunications, en s’appuyant sur un jeu de données clients collecté sur une période de douze mois auprès d’un opérateur iranien. 
+
+L’objectif de ce dossier est de dépasser le cadre exploratoire afin de modéliser, par des méthodes de machine learning intégrées dans l’écosystème tidymodels, les mécanismes prédictifs du churn à l’échelle individuelle. Le jeu de données comprend 3 150 observations décrites par 13 variables relatives aux usages télécoms (échecs d’appels, fréquence de SMS, secondes d’utilisation, nombre d’appels distincts), aux interactions clients (plaintes), aux caractéristiques contractuelles (ancienneté d’abonnement, type de service, montant facturé) ainsi qu’à des variables sociodémographiques agrégées (groupe d’âge, valeur client, fréquence d’usage).
+
+Nous mobilisons pour cela une chaîne de modélisation complète reposant sur les principes tidymodels : pré-traitement des données (recipes), partitionnement, validation croisée et optimisation d’hyperparamètres. Plusieurs algorithmes supervisés sont comparés afin d’évaluer leur performance prédictive dans l’anticipation de la résiliation, définie comme l’état du client à l’issue des douze mois, après une fenêtre d’observation de neuf mois et un intervalle de planification de trois mois.
+  
+\end{abstract}
+\vspace*{\fill}
+
+\newpage
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r chargement des données}
+data <- read.csv("data/Customer Churn.csv")
+```
+
+\newpage
+
+# Introduction
+
+## Contexte et objectifs
