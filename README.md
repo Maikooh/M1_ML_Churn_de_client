@@ -13,7 +13,7 @@ Fichier : `data/Customer Churn.csv`
 
 ```
 ├── script/              # Scripts R pour l'analyse et modélisation
-├── documentation/       # Documentation sur l'utilisation de l'IA
+├── documentation/       # Documentation sur l'utilisation de l'IA et des scripts
 ├── data/               # Données d'entrée
 └── Churn_de_clients_d_une_entreprise_de_telecom.rmd  # Notebook principal
 ```
