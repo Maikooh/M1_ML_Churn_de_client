@@ -60,3 +60,19 @@ data <- read.csv("data/Customer Churn.csv")
 # Introduction
 
 ## Contexte et objectifs
+
+Dans un marché des télécommunications fortement concurrentiel, la résiliation client (churn) représente un enjeu stratégique majeur. La perte d’abonnés affecte directement les revenus récurrents et oblige les opérateurs à optimiser leurs politiques de rétention, en ciblant prioritairement les clients dont le départ est le plus probable. Dans ce contexte, l’exploitation des données clients permet de passer d’une logique réactive (agir après la résiliation) à une logique préventive : identifier en amont les profils à risque afin de déclencher des actions adaptées (offres personnalisées, amélioration du service, accompagnement spécifique).
+
+Cette étude s’inscrit dans cette logique décisionnelle et vise à traiter le churn comme un problème de classification supervisée. L’objectif n’est pas seulement de décrire les comportements associés à la résiliation, mais de construire un outil prédictif capable d’estimer, au niveau individuel, la probabilité de churn à un horizon défini. Une telle approche soulève plusieurs questions opérationnelles : quels signaux comportementaux ou relationnels semblent les plus discriminants ? quelles méthodes offrent les meilleures performances prédictives ? comment arbitrer entre performance pure, stabilité et interprétabilité ?
+
+L’objectif principal du dossier est donc de mettre en œuvre une démarche complète de modélisation en mobilisant des méthodes de machine learning dans l’écosystème tidymodels. Plus précisément, nous cherchons à :
+
+Définir un protocole expérimental reproductible (partitionnement des données, validation croisée, contrôle du surapprentissage) afin d’obtenir des résultats robustes et comparables.
+
+Mettre en place un pré-traitement cohérent (normalisation, encodage, gestion des variables) intégré au pipeline de modélisation, de façon à garantir l’équité de comparaison entre modèles.
+
+Comparer plusieurs modèles de classification supervisée, allant d’approches de référence à des méthodes plus flexibles, et sélectionner le modèle le plus pertinent selon des critères de performance adaptés (par exemple ROC-AUC, F1, rappel, précision), en tenant compte des implications pratiques d’une erreur de prédiction (faux positifs vs faux négatifs).
+
+Interpréter les résultats pour relier les performances à des mécanismes plausibles et produire des enseignements mobilisables : variables les plus informatives, profils typiques à risque, limites et précautions d’usage.
+
+Enfin, ce dossier s’organise comme suit : après la présentation des données et des variables, nous détaillons la stratégie de préparation et de validation, puis nous entraînons et comparons les modèles retenus. Nous terminons par une discussion des résultats, des limites méthodologiques et des pistes d’amélioration possibles.
