@@ -61,18 +61,58 @@ data <- read.csv("data/Customer Churn.csv")
 
 ## Contexte et objectifs
 
-Dans un marché des télécommunications fortement concurrentiel, la résiliation client (churn) représente un enjeu stratégique majeur. La perte d’abonnés affecte directement les revenus récurrents et oblige les opérateurs à optimiser leurs politiques de rétention, en ciblant prioritairement les clients dont le départ est le plus probable. Dans ce contexte, l’exploitation des données clients permet de passer d’une logique réactive (agir après la résiliation) à une logique préventive : identifier en amont les profils à risque afin de déclencher des actions adaptées (offres personnalisées, amélioration du service, accompagnement spécifique).
+Dans un marché des télécommunications fortement concurrentiel, la résiliation client (*churn*) représente un enjeu stratégique majeur. La perte d’abonnés affecte directement les revenus récurrents et oblige les opérateurs à optimiser leurs politiques de rétention, en ciblant prioritairement les clients dont le départ est le plus probable. Dans ce contexte, l’exploitation des données clients permet de passer d’une logique réactive (agir après la résiliation) à une logique préventive : identifier en amont les profils à risque afin de déclencher des actions adaptées (offres personnalisées, amélioration du service, accompagnement spécifique).
 
-Cette étude s’inscrit dans cette logique décisionnelle et vise à traiter le churn comme un problème de classification supervisée. L’objectif n’est pas seulement de décrire les comportements associés à la résiliation, mais de construire un outil prédictif capable d’estimer, au niveau individuel, la probabilité de churn à un horizon défini. Une telle approche soulève plusieurs questions opérationnelles : quels signaux comportementaux ou relationnels semblent les plus discriminants ? quelles méthodes offrent les meilleures performances prédictives ? comment arbitrer entre performance pure, stabilité et interprétabilité ?
+Cette étude s’inscrit dans cette logique décisionnelle et vise à traiter le churn comme un problème de classification supervisée. L’objectif n’est pas seulement de décrire les comportements associés à la résiliation, mais de construire un outil prédictif capable d’estimer, au niveau individuel, la probabilité de churn à un horizon défini. Une telle approche soulève plusieurs questions opérationnelles : quels signaux comportementaux ou relationnels semblent les plus discriminants ? Quelles méthodes offrent les meilleures performances prédictives ? Comment arbitrer entre performance, stabilité et interprétabilité ?
 
-L’objectif principal du dossier est donc de mettre en œuvre une démarche complète de modélisation en mobilisant des méthodes de machine learning dans l’écosystème tidymodels. Plus précisément, nous cherchons à :
+L’objectif principal du dossier est donc de mettre en œuvre une démarche complète de modélisation en mobilisant des méthodes de machine learning dans l’écosystème **tidymodels**. Plus précisément, nous cherchons à :
 
-Définir un protocole expérimental reproductible (partitionnement des données, validation croisée, contrôle du surapprentissage) afin d’obtenir des résultats robustes et comparables.
-
-Mettre en place un pré-traitement cohérent (normalisation, encodage, gestion des variables) intégré au pipeline de modélisation, de façon à garantir l’équité de comparaison entre modèles.
-
-Comparer plusieurs modèles de classification supervisée, allant d’approches de référence à des méthodes plus flexibles, et sélectionner le modèle le plus pertinent selon des critères de performance adaptés (par exemple ROC-AUC, F1, rappel, précision), en tenant compte des implications pratiques d’une erreur de prédiction (faux positifs vs faux négatifs).
-
-Interpréter les résultats pour relier les performances à des mécanismes plausibles et produire des enseignements mobilisables : variables les plus informatives, profils typiques à risque, limites et précautions d’usage.
+- Définir un protocole expérimental reproductible (partitionnement des données, validation croisée, contrôle du surapprentissage) afin d’obtenir des résultats robustes et comparables ;
+- Mettre en place un pré-traitement cohérent (normalisation, encodage, gestion des variables) intégré au pipeline de modélisation, de façon à garantir l’équité de comparaison entre modèles ;
+- Comparer plusieurs modèles de classification supervisée, allant d’approches de référence à des méthodes plus flexibles, et sélectionner le modèle le plus pertinent selon des critères de performance adaptés (par exemple ROC-AUC, F1, rappel, précision), en tenant compte des implications pratiques d’une erreur de prédiction (faux positifs vs faux négatifs) ;
+- Interpréter les résultats pour relier les performances à des mécanismes plausibles et produire des enseignements mobilisables (variables informatives, profils typiques à risque, limites et précautions d’usage).
 
 Enfin, ce dossier s’organise comme suit : après la présentation des données et des variables, nous détaillons la stratégie de préparation et de validation, puis nous entraînons et comparons les modèles retenus. Nous terminons par une discussion des résultats, des limites méthodologiques et des pistes d’amélioration possibles.
+
+## Présentation des données
+
+Le dataset utilisé est le **Iranian Churn Dataset**, disponible sur la plateforme [**UCI Machine Learning Repository**](https://archive.ics.uci.edu/dataset/563/iranian+churn+dataset "Dataset link").
+
+Il a été collecté dans le secteur des télécommunications en Iran afin d'analyser et de prédire le phénomène de **churn** client (résiliation d'abonnement).
+
+L'objectif est alors de construire des modèles capables de prédire si un client va quitter l'opérateur, afin d'améliorer les stratégies de rétention.
+
+### Taille du dataset
+
+- Nombre d'observations : `r sum(nrow(data))`
+- Nombre de variables : `r ncol(data)-1` variables explications et 1 variable cible
+- Type de problème : Classification binaire (churn / non-churn)
+
+### Description des variables
+
+Notre variable cible est `r colnames(data[14])`
+
+```{r tableau présentation des données}
+source("script/00_presentation_des_donnees.R")
+tableau_presentation_donnees
+```
+
+### Qualité des données
+
+Selon la documentation UCI du dataset :
+- Pas de valeurs manquantes
+- Données déjà nettoyés
+- Pas de doublons présent
+- Pas de valeur aberrante
+
+Tout cela signifie donc le pré-traitement nécessaire à l'étude.
+
+### Intérêt du dataset pour le Machine Learning
+
+Les points forts de ce dataset sont :
+- Des données réelles issues du secteur des télécommunications
+- Un mélange de donnée numérique et catégorielle.
+
+Les limites de ce dataset sont : 
+- Données issues d'un seul pays (Iran)
+- Dataset relativement petit avec seulement `r sum(nrow(data))` observations
