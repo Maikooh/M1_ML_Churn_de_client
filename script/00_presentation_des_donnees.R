@@ -1,9 +1,17 @@
 library(knitr)
 library(kableExtra)
 library(stringr)
+library(tidyverse)
 
 
-data <- read.csv("data/Customer Churn.csv")
+data <- read.csv("data/Customer Churn.csv", check.names = FALSE) |>
+  mutate(
+    `Churn`       = factor(`Churn`, levels = c(0, 1), labels = c("No", "Yes")),
+    `Complains`   = factor(`Complains`, levels = c(0, 1), labels = c("No", "Yes")),
+    `Age Group`   = factor(`Age Group`),
+    `Tariff Plan` = factor(`Tariff Plan`, levels = c(1, 2), labels = c("Payant", "Gratuit")),
+    `Status`      = factor(`Status`, levels = c(1, 2), labels = c("Actif", "Inactif"))
+  )
 
 
 # Formatage
