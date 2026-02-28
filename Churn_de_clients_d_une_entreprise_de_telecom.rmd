@@ -28,7 +28,6 @@ html_document:
     toc: FALSE
     toc_float: FALSE
     theme: united
-
 ---
 
 \vspace*{\fill}
@@ -42,7 +41,6 @@ Nous mobilisons pour cela une chaîne de modélisation complète reposant sur le
   
 \end{abstract}
 \vspace*{\fill}
-
 \newpage
 \tableofcontents
 \newpage
@@ -67,14 +65,16 @@ Cette étude s’inscrit dans cette logique décisionnelle et vise à traiter le
 
 L’objectif principal du dossier est donc de mettre en œuvre une démarche complète de modélisation en mobilisant des méthodes de machine learning dans l’écosystème **tidymodels**. Plus précisément, nous cherchons à :
 
-- Définir un protocole expérimental reproductible (partitionnement des données, validation croisée, contrôle du surapprentissage) afin d’obtenir des résultats robustes et comparables ;
-- Mettre en place un pré-traitement cohérent (normalisation, encodage, gestion des variables) intégré au pipeline de modélisation, de façon à garantir l’équité de comparaison entre modèles ;
-- Comparer plusieurs modèles de classification supervisée, allant d’approches de référence à des méthodes plus flexibles, et sélectionner le modèle le plus pertinent selon des critères de performance adaptés (par exemple ROC-AUC, F1, rappel, précision), en tenant compte des implications pratiques d’une erreur de prédiction (faux positifs vs faux négatifs) ;
-- Interpréter les résultats pour relier les performances à des mécanismes plausibles et produire des enseignements mobilisables (variables informatives, profils typiques à risque, limites et précautions d’usage).
+-   Définir un protocole expérimental reproductible (partitionnement des données, validation croisée, contrôle du surapprentissage) afin d’obtenir des résultats robustes et comparables ;
+-   Mettre en place un pré-traitement cohérent (normalisation, encodage, gestion des variables) intégré au pipeline de modélisation, de façon à garantir l’équité de comparaison entre modèles ;
+-   Comparer plusieurs modèles de classification supervisée, allant d’approches de référence à des méthodes plus flexibles, et sélectionner le modèle le plus pertinent selon des critères de performance adaptés (par exemple ROC-AUC, F1, rappel, précision), en tenant compte des implications pratiques d’une erreur de prédiction (faux positifs vs faux négatifs) ;
+-   Interpréter les résultats pour relier les performances à des mécanismes plausibles et produire des enseignements mobilisables (variables informatives, profils typiques à risque, limites et précautions d’usage).
 
 Enfin, ce dossier s’organise comme suit : après la présentation des données et des variables, nous détaillons la stratégie de préparation et de validation, puis nous entraînons et comparons les modèles retenus. Nous terminons par une discussion des résultats, des limites méthodologiques et des pistes d’amélioration possibles.
 
 ## Présentation des données
+
+### Source de données
 
 Le dataset utilisé est le **Iranian Churn Dataset**, disponible sur la plateforme [**UCI Machine Learning Repository**](https://archive.ics.uci.edu/dataset/563/iranian+churn+dataset "Dataset link").
 
@@ -82,11 +82,11 @@ Il a été collecté dans le secteur des télécommunications en Iran afin d'ana
 
 L'objectif est alors de construire des modèles capables de prédire si un client va quitter l'opérateur, afin d'améliorer les stratégies de rétention.
 
-### Taille du dataset
+Celui-ci est constitué de :
 
-- Nombre d'observations : `r sum(nrow(data))`
-- Nombre de variables : `r ncol(data)-1` variables explications et 1 variable cible
-- Type de problème : Classification binaire (churn / non-churn)
+-   Nombre d'observations : `r sum(nrow(data))`
+-   Nombre de variables : `r ncol(data)-1` variables explications et 1 variable cible
+-   Type de problème : Classification binaire (churn / non-churn)
 
 ### Description des variables
 
@@ -97,22 +97,78 @@ source("script/00_presentation_des_donnees.R")
 tableau_presentation_donnees
 ```
 
-### Qualité des données
-
-Selon la documentation UCI du dataset :
-- Pas de valeurs manquantes
-- Données déjà nettoyés
-- Pas de doublons présent
-- Pas de valeur aberrante
-
-Tout cela signifie donc le pré-traitement nécessaire à l'étude.
-
 ### Intérêt du dataset pour le Machine Learning
 
 Les points forts de ce dataset sont :
-- Des données réelles issues du secteur des télécommunications
-- Un mélange de donnée numérique et catégorielle.
+
+-  Des données réelles issues du secteur des télécommunications 
+-  Un mélange de donnée numérique et catégorielle.
 
 Les limites de ce dataset sont : 
-- Données issues d'un seul pays (Iran)
-- Dataset relativement petit avec seulement `r sum(nrow(data))` observations
+
+-  Données issues d'un seul pays (Iran)
+-  Dataset relativement petit avec seulement `r sum(nrow(data))` observations
+
+### Analyse exploratoire des données
+
+Selon la documentation UCI du dataset :
+
+-   Pas de valeurs manquantes
+
+-   Données déjà nettoyés
+
+-   Pas de doublons présent
+
+-    Pas de valeur aberrante
+
+Par précaution affichons tout de même un résumé de nos données pour en observer le réel état.
+
+```{r}
+source("script/01_analyse_exploratoire.R")
+tableau_summary
+tableau_summary_cat
+```
+
+**Premières observations descriptives**
+
+Le jeu de données comprend `r sum(nrow(data))` observations sans valeurs manquantes. L'absence de données manquantes et de doublons constitue un avantage méthodologique important, puisqu'elle permet d'éviter des étapes d'imputation ou de filtrage susceptibles d'introduire du bruit supplémentaire dans la modélisation.
+
+L'échantillon présente toutefois un déséquilibre notable concernant la variable cible : `r round(mean(data$Churn == "Yes") * 100, 1)` % des clients ont résilié leur contrat, contre `r round(mean(data$Churn == "No") * 100, 1)` % qui sont restés. Ce déséquilibre devra être pris en compte lors de l'évaluation des modèles, en privilégiant des métriques adaptées aux classes minoritaires plutôt que la seule accuracy.
+
+**Profil démographique**
+
+L'âge des clients est relativement concentré autour de la trentaine (moyenne de `r round(mean(data$Age, na.rm = TRUE), 0)` ans, médiane de `r round(median(data$Age, na.rm = TRUE), 0)` ans, écart-type de `r round(sd(data$Age, na.rm = TRUE), 2)`). La population étudiée apparaît donc majoritairement jeune à intermédiaire.
+
+La variable de groupe d'âge montre une forte concentration sur deux modalités principales (groupes 2 et 3), qui regroupent plus des trois quarts de l'échantillon (`r round((sum(data[["Age Group"]] == 2) + sum(data[["Age Group"]] == 3)) / nrow(data) * 100, 1)` %). Cette distribution non uniforme suggère que certains segments démographiques pourraient être surreprésentés dans l'apprentissage du modèle.
+
+**Variables d'usage**
+
+Les variables liées au comportement d'usage (fréquence d'utilisation, fréquence des SMS, secondes d'utilisation, nombre de numéros distincts appelés) présentent une dispersion importante, avec des écarts-types élevés et des valeurs maximales nettement supérieures aux médianes.
+
+Par exemple, les secondes d'utilisation varient fortement (moyenne d'environ `r round(mean(data[["Seconds of Use"]], na.rm = TRUE), 0)` secondes pour un maximum de `r max(data[["Seconds of Use"]], na.rm = TRUE)`), ce qui suggère l'existence de profils très hétérogènes, allant de clients faiblement actifs à des utilisateurs intensifs. Cette hétérogénéité comportementale constitue un signal potentiellement informatif pour la prédiction du churn.
+
+Les échecs d'appels (Call Failure) présentent également une variabilité non négligeable (écart-type de `r round(sd(data[["Call  Failure"]], na.rm = TRUE), 2)`), pouvant refléter des problèmes de qualité de service susceptibles d'influencer la satisfaction et, indirectement, la probabilité de résiliation.
+
+**Variables économiques et contractuelles**
+
+La variable Customer Value présente une distribution asymétrique à droite : la moyenne (`r round(mean(data[["Customer Value"]], na.rm = TRUE), 2)`) est nettement supérieure à la médiane (`r round(median(data[["Customer Value"]], na.rm = TRUE), 2)`), indiquant la présence de clients à très forte valeur qui tirent la moyenne vers le haut. Cette asymétrie pourra justifier, dans certaines modélisations, l'utilisation de transformations (par exemple logarithmiques) afin de stabiliser la variance.
+
+Le montant facturé (Charge Amount) présente une médiane nulle (`r median(data[["Charge  Amount"]], na.rm = TRUE)`), ce qui suggère qu'une proportion importante de clients génère peu ou pas de facturation directe sur la période observée.
+
+L'ancienneté d'abonnement (Subscription Length) est relativement concentrée autour de `r quantile(data[["Subscription  Length"]], 0.25, na.rm = TRUE)` à `r round(median(data[["Subscription  Length"]], na.rm = TRUE), 0)` mois, indiquant une clientèle globalement installée depuis plusieurs années. L'ancienneté est traditionnellement une variable déterminante dans les problématiques de churn, les comportements pouvant différer entre nouveaux abonnés et clients établis.
+
+**Variables relationnelles et contractuelles**
+
+La majorité des clients n'a pas déposé de plainte (`r round(mean(data$Complains == "No") * 100, 1)` %), est active (`r round(mean(data$Status == "Actif") * 100, 1)` %) et dispose d'un plan payant (`r round(mean(data[["Tariff Plan"]] == "Payant") * 100, 1)` %). Ces variables sont fortement déséquilibrées, ce qui peut limiter leur pouvoir discriminant pris isolément, mais elles peuvent devenir pertinentes en interaction avec des variables comportementales ou économiques.
+
+**Synthèse des premiers constats**
+
+L'analyse descriptive met en évidence trois éléments structurants pour la suite de l'étude :
+
+1. Un déséquilibre modéré de la variable cible (`r round(mean(data$Churn == "Yes") * 100, 1)` %), nécessitant un choix attentif des métriques d'évaluation.
+
+2. Une forte hétérogénéité des comportements d'usage, susceptible de constituer une source majeure d'information prédictive.
+
+3. Des distributions asymétriques pour certaines variables économiques (Customer Value notamment, avec un ratio moyenne/médiane de `r round(mean(data[["Customer Value"]], na.rm = TRUE) / median(data[["Customer Value"]], na.rm = TRUE), 1)`), invitant à envisager des transformations adaptées dans le pipeline de pré-traitement.
+
+Ces constats orientent directement les choix méthodologiques de la phase de modélisation, notamment en matière de normalisation, de gestion du déséquilibre de classes et de sélection de métriques d'évaluation pertinentes.
