@@ -47,3 +47,26 @@ La structure doit inclure :
 
 Le document doit être structuré avec des titres hiérarchiques (H1, H2, H3), des listes à puces, des séparateurs visuels ---, et être prêt à copier-coller dans un README.
 ```
+
+# Documentation des script
+
+Prompt donné à copilot :
+```
+En suivant la structure de mon fichier Script.md, ajoute le fonctionnement de mes script 02 à 05.
+```
+
+
+# Question de méthode / renseignement
+
+Diverse question sur ChatGPT
+
+```
+- J'utilise tidymodels pour setup différents modèles de classification. Explique moi la différence entre un workflow général pour plusieurs modeles et et un workflow propre à chaque modèle, fait en un comparatif en particulier au niveau méthodologique
+
+- Explique moi comment fonctionne SMOTE dans tidymodels
+
+- Comment utiliser le package R "worfklowsets" dont voici la documentation : https://workflowsets.tidymodels.org/
+
+- ...
+
+```
