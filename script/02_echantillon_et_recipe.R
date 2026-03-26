@@ -8,6 +8,7 @@
 
 
 library(tidymodels)
+library(themis)
 
 set.seed(2026)
 
@@ -52,15 +53,17 @@ recipe_distance <- recipe(Churn ~ ., data = train_data) %>%
 
 
 # recipe pour les modèles discriminants ------------------------
-
-recipe_discrim <- recipe(Churn ~ ., data = train_data) %>%
-  step_impute_median(all_numeric_predictors()) %>%
-  step_impute_mode(all_nominal_predictors()) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_zv(all_predictors()) %>%
-  step_corr(all_numeric_predictors(), threshold = 0.9) %>%
-  step_smote(Churn)
-
+# INADAPTE à supprimer après justification dans le rapport
+#
+# recipe_discrim <- recipe(Churn ~ ., data = train_data) %>%
+#   step_impute_median(all_numeric_predictors()) %>%
+#   step_impute_mode(all_nominal_predictors()) %>%
+#   step_dummy(all_nominal_predictors()) %>%
+#   step_zv(all_predictors()) %>%
+#   step_lincomb(all_predictors()) %>%
+#   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
+#   step_smote(Churn) |>
+#   step_lincomb(all_predictors())
 
 
 # RECIPE GLOBAL MAIS MOINS ADAPTE POUR CHAQUE MODELE
@@ -104,8 +107,8 @@ if (affichage_des_verifs) {
     glimpse()
 
   # recipe Discriminante -> supprime les variables corrélés
-  recipe_discrim %>%
-    prep() %>%
-    juice() %>%
-    ncol()
+  # recipe_discrim %>%
+  #   prep() %>%
+  #   juice() %>%
+  #   ncol()
 }

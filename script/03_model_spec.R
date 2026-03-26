@@ -16,7 +16,7 @@ library(kernlab)
 
 # random forest
 rf_spec <- rand_forest(trees = 1000) %>%
-  set_engine("ranger", importance = "impurity") %>%
+  set_engine("ranger", importance = "permutation") %>%
   set_mode("classification")
 
 # boosting
@@ -54,13 +54,14 @@ svm_lin_spec <- svm_linear() %>%
 
 
 # modèle géométrique (discriminant) -----------------------
+# SUPRESSION CAR INADAPTE AU PROBLEME MAIS CONSERVER TEMPORAIREMENT POUR JUSTIFIER DANS LE RAPPORT
 
-# lda
-lda_spec <- discrim_linear() %>%
-  set_engine("MASS") %>%
-  set_mode("classification")
-
-# qda
-qda_spec <- discrim_quad() %>%
-  set_engine("MASS") %>%
-  set_mode("classification")
+# # lda
+# lda_spec <- discrim_linear() %>%
+#   set_engine("MASS") %>%
+#   set_mode("classification")
+#
+# # qda
+# qda_spec <- discrim_quad() %>%
+#   set_engine("MASS") %>%
+#   set_mode("classification")

@@ -37,6 +37,7 @@ tableau_summary <- data |>
 
 tableau_summary_cat <- data |>
   select(where(is.factor)) |>
+  mutate(across(everything(), as.character)) |>
   pivot_longer(everything(), names_to = "Variable", values_to = "Modalite") |>
   group_by(Variable, Modalite) |>
   summarise(n = n(), .groups = "drop") |>
@@ -61,3 +62,4 @@ tableau_summary_cat <- data |>
     font_size     = 9
   ) |>
   collapse_rows(columns = c(1, 4), latex_hline = "major", valign = "middle")
+
