@@ -1,41 +1,65 @@
-# Ce fichier contient le workflow set liant recipe et model spec
-# fichier 02 et 03
+# Ce fichier construit le workflow set en associant chaque recette à sa famille
+# de modèles compatible (définis dans 02 et 03).
+#
+# Principe : cross = TRUE génère toutes les combinaisons recette x modèle,
+# puis filter() ne conserve que les paires méthodologiquement valides :
+#
+#   recipe_tree    <- tree_spec, bagging_spec, rf_spec
+#   recipe_xgb     <- xgb_spec
+#   recipe_distance <- logit_spec, knn_spec, svm_lin_spec, svm_rad_spec
+#
+# Prérequis : objets issus de 02_echantillon_et_recipe.R et 03_model_spec.R
 
-library(workflowsets)
+library(tidymodels) 
+
+
+# ── Construction du workflow set ─────────────────────────────────────────────
 
 all_workflows <- workflow_set(
   preproc = list(
-    tree    = recipe_tree, # arbre bagging et randomforest
-    xgb     = recipe_xgb, # XGBoost
-    dist    = recipe_distance # knn et svm
-    # discrim = recipe_discrim # lda et qda
+    tree = recipe_tree, # arbres 
+    xgb  = recipe_xgb, # XGBoost 
+    dist = recipe_distance # distance + linéaire 
   ),
   models = list(
-    rf      = rf_spec,
-    xgb     = xgb_spec,
-    bag     = bagging_spec,
-    dt      = tree_spec,
-    knn     = knn_spec,
-    svm_rad = svm_rad_spec,
-    svm_lin = svm_lin_spec
-    # lda     = lda_spec, #suppression car inadapté
-    # qda     = qda_spec
+    logit   = logit_spec, # baseline logistique (recipe_distance)
+    dt      = tree_spec, # arbre de décision   (recipe_tree)
+    bag     = bagging_spec, # bagging             (recipe_tree)
+    rf      = rf_spec, # random forest       (recipe_tree)
+    xgb     = xgb_spec, # XGBoost             (recipe_xgb)
+    knn     = knn_spec, # KNN                 (recipe_distance)
+    svm_lin = svm_lin_spec, # SVM linéaire        (recipe_distance)
+    svm_rad = svm_rad_spec # SVM RBF             (recipe_distance)
   ),
   cross = TRUE
-) %>%
+) |>
   filter(wflow_id %in% c(
-    "tree_rf", "tree_bag", "tree_dt", # arbres
-    "xgb_xgb", # boosting
-    "dist_knn", "dist_svm_rad", "dist_svm_lin" # distance
-    # "discrim_lda", "discrim_qda" # discriminante -> inadapté au problème suppresion après justification
+    # Arbres et ensemble
+    "tree_dt", "tree_bag", "tree_rf",
+    # Boosting
+    "xgb_xgb",
+    # Distance et linéaire (normalisation + dummies)
+    "dist_logit", "dist_knn", "dist_svm_lin", "dist_svm_rad"
   ))
 
 
-# -----------------------------------------------
+# ── Vérification (optionnel) ─────────────────────────────────────────────────
 
-
-affichage_workflow <- F
+affichage_workflow <- FALSE
 
 if (affichage_workflow) {
-  all_workflows$wflow_id
+  all_workflows |> pull(wflow_id)
 }
+
+
+# ── Nettoyage de l'environnement ─────────────────────────────────────────────
+
+rm(list = setdiff(ls(), c(
+  "data",
+  "churn_split", "train_data", "test_data", "churn_folds",
+  "recipe_tree", "recipe_xgb", "recipe_distance",
+  "logit_spec",
+  "tree_spec", "bagging_spec", "rf_spec", "xgb_spec",
+  "knn_spec", "svm_lin_spec", "svm_rad_spec",
+  "all_workflows"
+)))
