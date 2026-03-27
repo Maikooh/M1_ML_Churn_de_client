@@ -1,5 +1,4 @@
-# Ce script spécialise la recipe des 2 modèles choisies
-# random forest et bosting avec l'engine xgboost
+#Ce script réalise le tuning du modèle random forest
 
 # en suivant les recommendations
 # de la documentation : https://www.tmwr.org/pre-proc-table.html
