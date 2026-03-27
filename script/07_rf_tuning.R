@@ -24,7 +24,7 @@ recipe_rf_opt <- recipe(Churn ~ ., data = train_data) |>
 
 # ── 2. Spécification tunable RF ──────────────────────────────────────────────
 
-rf_spec_tuned <- rand_forest(mtry  = tune(), min_n = tune(), trees = 1000) |> 
+rf_spec_tuned <- rand_forest(mtry = 4, min_n = 11, trees = 1000) |> 
   set_engine("ranger", importance = "permutation") |> 
   set_mode("classification")
 
@@ -34,32 +34,9 @@ rf_wf_tuned <- workflow() |>
   add_recipe(recipe_rf_opt) |> 
   add_model(rf_spec_tuned)
 
-# ── 4. Grille ────────────────────────────────────────────────────────────────
-
-rf_params <- parameters(mtry(), min_n()) |> 
-  finalize(train_data |>  select(-Churn))
-
-rf_grid <- grid_regular(rf_params, levels = 5)
-
-# ── 5. Tuning CV ─────────────────────────────────────────────────────────────
-
-set.seed(2026)
-
-rf_tuning_results <- tune_grid(
-  rf_wf_tuned,
-  resamples = churn_folds,
-  grid = rf_grid,
-  metrics = churn_metrics,
-  control = control_grid(save_pred = TRUE, verbose = TRUE))
-
-# ── 6. Meilleurs paramètres ──────────────────────────────────────────────────
-
-rf_best_params <- select_best(rf_tuning_results, metric = "roc_auc")
-rf_best_table  <- show_best(rf_tuning_results, metric = "roc_auc", n = 10)
-
 # ── 7. Modèle final ──────────────────────────────────────────────────────────
 
-rf_final_wf <- finalize_workflow(rf_wf_tuned, rf_best_params)
+rf_final_wf <- rf_wf_tuned
 
 rf_final_fit <- last_fit(
   rf_final_wf,
@@ -86,8 +63,6 @@ rf_variable_importance <- tibble(
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-rf_best_params
-rf_best_table
 rf_final_metrics
 rf_conf_mat
 
@@ -139,3 +114,34 @@ rf_compare_full <- rf_compare |>
   left_join(rf_test, by = ".metric")
 
 rf_compare_full
+
+
+# ────────── Tableau comparaison ─────────────────────────────────────
+
+library(gt)
+
+table_rf_tuning <- tibble(
+  Metric = c("ROC AUC", "Precision", "Recall", "F1", "Accuracy"),
+  `RF initial` = c(0.980, 0.976, 0.968, 0.972, 0.953),
+  `RF tuné CV` = c(0.984, 0.984, 0.968, 0.976, 0.960),
+  `RF test`    = c(0.993, 0.990, 0.968, 0.979, 0.965)
+)
+
+table_rf_tuning %>%
+  gt() %>%
+  tab_header(
+    title = md("**Comparaison des performances du Random Forest**"),
+    subtitle = "Benchmark initial, tuning en validation croisée et test final"
+  ) %>%
+  fmt_number(
+    columns = c(`RF initial`, `RF tuné CV`, `RF test`),
+    decimals = 3
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(`RF initial`, `RF tuné CV`, `RF test`)
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = Metric
+  )
