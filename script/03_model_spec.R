@@ -1,12 +1,12 @@
 # Ce fichier définit les spécifications des modèles pour le benchmark initial.
 # Les modèles sont organisés en trois familles :
-#   1. Baseline          : régression logistique (référence minimale)
+#   1. Baseline          : régression logistique (pour référence)
 #   2. Arbres et ensemble : Decision Tree, Bagging, Random Forest, XGBoost
 #   3. Distance          : KNN, SVM linéaire, SVM RBF
 #
 # Aucun hyperparamètre n'est marqué tune() ici : ce fichier sert au benchmark
 # initial avec des valeurs par défaut raisonnées. Les spécifications de tuning
-# seront définies dans 06_tuning.R.
+# seront définies plus tard.
 #
 # Note sur LDA / QDA : exclus car leurs hypothèses sont incompatibles avec ce
 # jeu de données. LDA suppose la normalité multivariée et l'égalité des matrices
