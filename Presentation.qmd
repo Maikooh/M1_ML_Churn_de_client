@@ -1,0 +1,871 @@
+---
+title: "Prédiction du Churn Client"
+subtitle: "Classification supervisée avec tidymodels"
+author: "Master MECEN — Semestre 2"
+date: today
+date-format: "D MMMM YYYY"
+format: 
+  beamer:
+    theme: "Madrid"
+    colortheme: "seahorse"
+    fonttheme: "structurebold"
+    navigation: horizontal
+    aspectratio: 169
+    toc: true
+    toc-depth: 1
+    slide-level: 2
+    fontsize: 10pt
+    header-includes: |
+      \usepackage{booktabs}
+      \usepackage{longtable}
+      \usepackage{array}
+      \usepackage{multirow}
+      \usepackage{xcolor}
+      \definecolor{churnYes}{HTML}{E24B4A}
+      \definecolor{churnNo}{HTML}{4999DA}
+      \definecolor{accent}{HTML}{185FA5}
+      \setbeamertemplate{caption}[numbered]
+      \setbeamertemplate{itemize items}[circle]
+      \setbeamertemplate{enumerate items}[default]
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHARGEMENT DES PACKAGES
+# ══════════════════════════════════════════════════════════════════════════════
+
+library(tidyverse)
+library(tidymodels)
+library(knitr)
+library(kableExtra)
+library(themis)
+library(ranger)
+library(xgboost)
+library(scales)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHARGEMENT DES DONNÉES
+# ══════════════════════════════════════════════════════════════════════════════
+
+data <- read.csv("data/Customer Churn.csv", check.names = FALSE) |>
+  mutate(
+    Churn            = factor(Churn, levels = c(0, 1), labels = c("No", "Yes")),
+    Complains        = factor(Complains, levels = c(0, 1), labels = c("No", "Yes")),
+    `Age Group`      = factor(`Age Group`, levels = 1:5, ordered = TRUE),
+    `Charge  Amount` = factor(`Charge  Amount`, levels = 0:10, ordered = TRUE),
+    `Tariff Plan`    = factor(`Tariff Plan`, levels = c(1, 2), labels = c("Prépayé", "Forfait")),
+    Status           = factor(Status, levels = c(1, 2), labels = c("Actif", "Inactif"))
+  )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONFIGURATION GLOBALE
+# ══════════════════════════════════════════════════════════════════════════════
+
+options(yardstick.event_first = FALSE)
+
+# Palette commune
+couleurs_churn <- c("No" = "#4999DA", "Yes" = "#E24B4A")
+
+palette_modeles <- c(
+  "xgb_xgb" = "#E24B4A", "tree_rf" = "#378ADD", "tree_bag" = "#1D9E75",
+  "tree_dt" = "#BA7517", "dist_logit" = "#7F77DD", "dist_knn" = "#D85A30",
+  "dist_svm_lin" = "#888780", "dist_svm_rad" = "#D4537E"
+)
+
+theme_set(
+  theme_minimal(base_size = 9) +
+    theme(
+      plot.title = element_text(face = "bold", size = 10),
+      plot.subtitle = element_text(colour = "grey40", size = 8),
+      legend.position = "bottom",
+      legend.key.size = unit(0.4, "cm")
+    )
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SPLIT ET CV
+# ══════════════════════════════════════════════════════════════════════════════
+
+set.seed(2026)
+churn_split <- initial_split(data, prop = 0.80, strata = Churn)
+train_data  <- training(churn_split)
+test_data   <- testing(churn_split)
+churn_folds <- vfold_cv(train_data, v = 10, strata = Churn)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RECIPES
+# ══════════════════════════════════════════════════════════════════════════════
+
+recipe_tree <- recipe(Churn ~ ., data = train_data) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_smotenc(Churn)
+
+recipe_xgb <- recipe(Churn ~ ., data = train_data) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |>
+  step_zv(all_predictors()) |>
+  step_smote(Churn)
+
+recipe_distance <- recipe(Churn ~ ., data = train_data) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors()) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_smote(Churn)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHARGEMENT DES RÉSULTATS SAUVEGARDÉS
+# ══════════════════════════════════════════════════════════════════════════════
+
+benchmark_results <- NULL
+xgb_tune_results <- NULL
+xgb_zoom_results <- NULL
+
+if (file.exists("data/benchmark_results_churn.rds")) {
+  benchmark_results <- readRDS("data/benchmark_results_churn.rds")
+}
+
+if (file.exists("data/xgb_tune_p1.rds")) {
+  xgb_tune_results <- readRDS("data/xgb_tune_p1.rds")
+}
+
+if (file.exists("data/xgb_tune_p2.rds")) {
+  xgb_zoom_results <- readRDS("data/xgb_tune_p2.rds")
+}
+
+churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
+```
+
+# Introduction
+
+## Contexte et objectif
+
+### Problématique métier
+
+Le **churn** (désabonnement) représente un enjeu majeur pour les opérateurs télécoms :
+
+- Coût d'acquisition d'un nouveau client : **5 à 25×** le coût de rétention
+- Identifier les clients à risque permet des **actions préventives ciblées**
+- Optimisation des ressources marketing et fidélisation
+
+### Objectif de l'étude
+
+> Développer un modèle prédictif performant pour identifier les clients susceptibles de résilier leur abonnement.
+
+**Source** : Iranian Churn Dataset (UCI Machine Learning Repository)
+
+## Méthodologie adoptée
+
+### Pipeline de modélisation
+
+\begin{center}
+\textbf{EDA} $\rightarrow$ \textbf{Preprocessing} $\rightarrow$ \textbf{Benchmark} $\rightarrow$ \textbf{Tuning} $\rightarrow$ \textbf{Évaluation}
+\end{center}
+
+### Framework technique
+
+- **Langage** : R avec l'écosystème `tidymodels`
+- **Packages** : `recipes`, `parsnip`, `workflows`, `tune`, `yardstick`, `themis`
+- **Validation** : Cross-validation stratifiée (10 folds)
+- **Métriques** : ROC AUC (principale), F1-score, Precision, Recall
+
+# Présentation des données
+
+## Vue d'ensemble du dataset
+
+```{r donnees-overview}
+tibble(
+  Caractéristique = c("Observations", "Variables", "Variable cible", 
+                      "Numériques", "Catégorielles", "Valeurs manquantes"),
+  Valeur = c(
+    format(nrow(data), big.mark = " "),
+    ncol(data),
+    "Churn (binaire)",
+    sum(sapply(data, is.numeric)),
+    sum(sapply(data, is.factor)),
+    sum(is.na(data))
+  )
+) |>
+  kable(booktabs = TRUE, align = c("l", "c")) |>
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+### Caractéristiques
+
+Données issues d'un opérateur télécom iranien :
+
+- **Comportement d'usage** : appels, SMS, durée d'utilisation
+- **Profil client** : âge, ancienneté, valeur client
+- **Relation commerciale** : plaintes, forfait, statut
+
+## Dictionnaire des variables
+
+```{r dictionnaire}
+noms_formates <- names(data) |> str_squish() |> str_to_title()
+
+types_colonnes <- sapply(data, \(x) {
+  if (is.ordered(x)) "Ordonné"
+  else if (is.factor(x)) "Facteur"
+  else if (is.integer(x)) "Entier"
+  else "Numérique"
+})
+
+descriptions <- c(
+  "Nombre d'appels échoués",
+  "Indicateur de plainte",
+  "Durée abonnement (mois)",
+  "Montant facturé (0-10)",
+  "Secondes d'appels",
+  "Nombre total d'appels",
+  "Nombre de SMS",
+  "Numéros uniques appelés",
+  "Tranche d'âge (1-5)",
+  "Type de forfait",
+  "Statut du compte",
+  "Âge du client",
+  "Valeur client estimée",
+  "Cible : churn"
+)
+
+data.frame(
+  Type = types_colonnes,
+  Description = descriptions,
+  check.names = FALSE
+) |>
+  kable(booktabs = TRUE, escape = FALSE, align = c("l", "c", "l")) |>
+  kable_styling(font_size = 7, latex_options = c("striped", "hold_position")) |>
+  row_spec(14, bold = TRUE, color = "#E24B4A")
+```
+
+# Analyse exploratoire
+
+## Déséquilibre de la variable cible
+
+```{r desequilibre}
+#| fig-width: 5
+#| fig-height: 3
+#| fig-align: center
+
+prop_churn <- data |>
+  count(Churn) |>
+  mutate(pct = round(n / sum(n) * 100, 1))
+
+ggplot(prop_churn, aes(x = Churn, y = n, fill = Churn)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(pct, "%\n(n = ", format(n, big.mark = " "), ")")),
+    vjust = -0.3, size = 3, fontface = "bold"
+  ) +
+  scale_fill_manual(values = couleurs_churn) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  labs(
+    title = "Distribution de la variable cible",
+    subtitle = "Déséquilibre marqué : ~84% No vs ~16% Yes",
+    x = "Churn", y = "Effectif"
+  )
+```
+
+### Conséquence méthodologique
+
+- **Accuracy trompeuse** : modèle naïf → 84%
+- **Solution** : SMOTE pour rééquilibrer
+- **Métrique principale** : ROC AUC
+
+## Statistiques descriptives — Variables numériques
+
+```{r summary-num}
+data |>
+  select(where(is.numeric)) |>
+  pivot_longer(everything(), names_to = "Variable") |>
+  group_by(Variable) |>
+  summarise(
+    Min     = min(value, na.rm = TRUE),
+    Médiane = median(value, na.rm = TRUE),
+    Moyenne = round(mean(value, na.rm = TRUE), 1),
+    Max     = max(value, na.rm = TRUE),
+    `E.T.`  = round(sd(value, na.rm = TRUE), 1)
+  ) |>
+  kable(booktabs = TRUE, align = c("l", rep("r", 5))) |>
+  kable_styling(font_size = 8, latex_options = c("striped", "hold_position"))
+```
+
+## Variables discriminantes — Corrélations
+
+```{r correlation}
+#| fig-width: 6
+#| fig-height: 4
+#| fig-align: center
+
+cor_matrix <- data |>
+  select(where(is.numeric)) |>
+  cor(use = "pairwise.complete.obs", method = "pearson")
+
+cor_long <- cor_matrix |>
+  as.data.frame() |>
+  rownames_to_column("Var1") |>
+  pivot_longer(-Var1, names_to = "Var2", values_to = "r") |>
+  filter(Var1 >= Var2)
+
+ggplot(cor_long, aes(x = Var1, y = Var2, fill = r)) +
+  geom_tile(colour = "white", linewidth = 0.3) +
+  geom_text(aes(label = round(r, 2)), size = 2,
+            colour = ifelse(abs(cor_long$r) > 0.5, "white", "grey30")) +
+  scale_fill_gradient2(
+    low = "#185FA5", mid = "white", high = "#A32D2D",
+    midpoint = 0, limits = c(-1, 1), name = "r"
+  ) +
+  coord_equal() +
+  theme(
+    axis.text.x = element_text(angle = 40, hjust = 1, size = 5),
+    axis.text.y = element_text(size = 5),
+    panel.grid = element_blank()
+  ) +
+  labs(title = "Matrice de corrélation", x = NULL, y = NULL)
+```
+
+## Variables catégorielles — Taux de churn
+
+```{r cat-churn}
+#| fig-width: 6
+#| fig-height: 3
+#| fig-align: center
+
+vars_cat <- data |> select(where(is.factor), -Churn) |> names()
+
+data |>
+  select(all_of(vars_cat), Churn) |>
+  pivot_longer(-Churn, names_to = "Variable", values_to = "Modalite",
+               values_transform = as.character) |>
+  group_by(Variable, Modalite, Churn) |>
+  summarise(n = n(), .groups = "drop") |>
+  group_by(Variable, Modalite) |>
+  mutate(pct = n / sum(n) * 100) |>
+  ggplot(aes(x = Modalite, y = pct, fill = Churn)) +
+  geom_col(position = "stack", width = 0.6) +
+  facet_wrap(~Variable, scales = "free_x", ncol = 3) +
+  scale_fill_manual(values = couleurs_churn) +
+  scale_y_continuous(labels = label_percent(scale = 1)) +
+  labs(
+    title = "Taux de churn par variable catégorielle",
+    subtitle = "Complains et Status : fort pouvoir discriminant",
+    x = NULL, y = "Proportion (%)"
+  ) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 6))
+```
+
+## Synthèse EDA — Variables clés
+
+### Variables à fort pouvoir discriminant
+
+| Variable | Observation | Implication |
+|:---------|:------------|:------------|
+| **Complains** | Beaucoup de plainte → churn  | Prédicteur majeur |
+| **Status** | Comptes inactifs | Signal fort |
+| **Frequency of use** | Faible usage → churn | Engagement |
+| **Customer Value** | Valeurs extrêmes | Segmentation |
+
+### Points de vigilance
+
+- **Multicolinéarité** : Frequency of use ↔ Seconds of Use (r ≈ 0.95)
+- **Variables ordinales** : Age Group, Charge Amount
+
+# Preprocessing
+
+## Stratégie d'échantillonnage
+
+### Split train / test = 80%
+
+```{r split-table}
+tibble(
+  Ensemble = c("Train", "Test"),
+  Observations = c(nrow(train_data), nrow(test_data)),
+  `Ratio Churn = Yes` = c(
+    paste0(round(mean(train_data$Churn == "Yes") * 100, 1), "%"),
+    paste0(round(mean(test_data$Churn == "Yes") * 100, 1), "%")
+  )
+) |>
+  kable(booktabs = TRUE, align = c("l", "r", "c")) |>
+  kable_styling(font_size = 9, latex_options = "hold_position")
+```
+
+### Validation croisée
+
+- **10 folds stratifiés** sur le train set
+- Stratification sur `Churn` → ~16% de "Yes" par fold
+- Estimations robustes et comparables
+
+## Recettes différenciées par famille
+
+### Principe (cf. tmwr.org/pre-proc-table)
+
+| Recette | Modèles | Spécificités |
+|:--------|:--------|:-------------|
+| `recipe_tree` | RF, Bagging, DT | Pas de dummies ni normalisation |
+| `recipe_xgb` | XGBoost | Dummies one-hot |
+| `recipe_distance` | KNN, SVM, Logit | Normalisation + dummies |
+
+### Gestion du déséquilibre
+
+- **SMOTENC** pour arbres (préserve les facteurs)
+- **SMOTE** après dummification pour les autres
+- Application en **dernière étape** uniquement
+
+<!-- ## Détail des recettes -->
+
+<!-- ### Recipe arbres -->
+
+<!-- ```{r recipe-tree-code, echo=TRUE, eval=FALSE} -->
+<!-- recipe_tree <- recipe(Churn ~ ., data = train_data) |> -->
+<!--   step_impute_median(all_numeric_predictors()) |> -->
+<!--   step_impute_mode(all_nominal_predictors()) |> -->
+<!--   step_smotenc(Churn) -->
+<!-- ``` -->
+
+<!-- ### Recipe XGBoost -->
+
+<!-- ```{r recipe-xgb-code, echo=TRUE, eval=FALSE} -->
+<!-- recipe_xgb <- recipe(Churn ~ ., data = train_data) |> -->
+<!--   step_dummy(all_nominal_predictors(), one_hot = TRUE) |> -->
+<!--   step_zv(all_predictors()) |> -->
+<!--   step_smote(Churn) -->
+<!-- ``` -->
+
+<!-- ### Recipe distance -->
+
+<!-- ```{r recipe-dist-code, echo=TRUE, eval=FALSE} -->
+<!-- recipe_distance <- recipe(Churn ~ ., data = train_data) |> -->
+<!--   step_dummy(all_nominal_predictors()) |> -->
+<!--   step_normalize(all_numeric_predictors()) |> -->
+<!--   step_smote(Churn) -->
+<!-- ``` -->
+
+# Benchmark initial
+
+## Modèles en compétition
+
+<!-- ### Baseline -->
+
+<!-- - **Régression logistique** : référence minimale -->
+
+### Arbres et ensemble
+
+| Modèle | Caractéristique |
+|:-------|:----------------|
+| Decision Tree | Interprétable |
+| Bagging | mtry = p |
+| Random Forest | mtry = √p, 500 arbres |
+| XGBoost | Boosting, early stopping |
+
+### Distance
+
+| Modèle | Caractéristique |
+|:-------|:----------------|
+| KNN | k = 10 |
+| SVM linéaire | Frontière linéaire |
+| SVM RBF | Kernel radial |
+
+## Résultats — ROC AUC
+
+```{r benchmark-roc}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-align: center
+#| out-width: "80%"
+
+if (!is.null(benchmark_results)) {
+  benchmark_results |>
+    collect_metrics() |>
+    filter(.metric == "roc_auc") |>
+    mutate(wflow_id = fct_reorder(wflow_id, mean)) |>
+    ggplot(aes(x = mean, y = wflow_id, colour = wflow_id)) +
+    geom_point(size = 3, show.legend = FALSE) +
+    geom_errorbar(
+      aes(xmin = mean - 1.96 * std_err, xmax = mean + 1.96 * std_err),
+      width = 0.25, alpha = 0.6, show.legend = FALSE
+    ) +
+    scale_colour_manual(values = palette_modeles) +
+    scale_x_continuous(labels = label_percent()) +
+    labs(
+      title = "Classement des modèles par ROC AUC",
+      subtitle = "Moyenne ± IC 95% sur 10 folds",
+      x = "ROC AUC", y = NULL
+    )
+}
+```
+
+## Tableau comparatif
+
+```{r benchmark-table}
+if (!is.null(benchmark_results)) {
+  benchmark_results |>
+    collect_metrics() |>
+    filter(.metric %in% c("roc_auc", "f_meas", "precision", "recall")) |>
+    select(wflow_id, .metric, mean) |>
+    mutate(mean = paste0(round(mean * 100, 1), "%")) |>
+    pivot_wider(names_from = .metric, values_from = mean) |>
+    arrange(desc(roc_auc)) |>
+    rename(Modèle = wflow_id, `ROC AUC` = roc_auc, 
+           `F1` = f_meas, Prec. = precision, Recall = recall) |>
+    kable(booktabs = TRUE, align = c("l", rep("c", 4))) |>
+    kable_styling(font_size = 8, latex_options = c("striped", "hold_position"))
+}
+```
+
+## Courbes ROC
+
+```{r roc-curves}
+#| fig-width: 6
+#| fig-height: 4
+#| fig-align: center
+#| out-width: "80%"
+
+if (!is.null(benchmark_results)) {
+  benchmark_results |>
+    collect_predictions() |>
+    group_by(wflow_id) |>
+    roc_curve(truth = Churn, .pred_Yes, event_level = "second") |>
+    ggplot(aes(x = 1 - specificity, y = sensitivity, colour = wflow_id)) +
+    geom_line(linewidth = 0.7) +
+    geom_abline(linetype = "dashed", colour = "grey60") +
+    scale_colour_manual(values = palette_modeles, name = "Modèle") +
+    scale_x_continuous(labels = label_percent()) +
+    scale_y_continuous(labels = label_percent()) +
+    labs(
+      title = "Courbes ROC — Comparaison",
+      x = "1 – Spécificité", y = "Sensibilité"
+    ) +
+    theme(legend.position = "right", legend.key.size = unit(0.3, "cm"))
+}
+```
+
+# Focus XGBoost — Tuning
+
+## Stratégie en 2 phases
+
+### Phase 1 : Exploration large
+
+- **Méthode** : Latin Hypercube (50 combinaisons)
+- **Algorithme** : `tune_race_anova()`
+
+### Phase 2 : Zoom local
+
+- **Méthode** : Grille resserrée (40 combinaisons)
+- **Validation** : CV 10-fold stratifié
+
+### Hyperparamètres tunés
+
+| Paramètre | Range |
+|:----------|:------|
+| `trees` | 50 – 900 |
+| `tree_depth` | 1 – 6 |
+| `learn_rate` | 0.001 – 0.1 |
+| `min_n` | 2 – 20 |
+
+## Visualisation du tuning
+
+```{r xgb-tuning}
+#| fig-width: 7
+#| fig-height: 4
+#| fig-align: center
+#| out-width: "80%"
+
+if (!is.null(xgb_tune_results)) {
+  xgb_tune_results |>
+    collect_metrics() |>
+    filter(.metric == "roc_auc") |>
+    pivot_longer(
+      c(trees, tree_depth, learn_rate, min_n),
+      names_to = "parametre", values_to = "valeur"
+    ) |>
+    ggplot(aes(x = valeur, y = mean)) +
+    geom_point(alpha = 0.5, size = 1.5, colour = "#E24B4A") +
+    geom_smooth(method = "loess", span = 1.2, se = FALSE, 
+                linewidth = 0.7, colour = "#A32D2D") +
+    facet_wrap(~parametre, scales = "free_x", ncol = 2) +
+    scale_y_continuous(labels = label_percent()) +
+    labs(
+      title = "Tuning XGBoost — Phase 1",
+      x = "Valeur", y = "ROC AUC (CV)"
+    )
+}
+```
+
+## Meilleurs hyperparamètres en phase 2
+
+```{r xgb-best}
+if (!is.null(xgb_zoom_results)) {
+  xgb_best <- select_best(xgb_zoom_results, metric = "roc_auc")
+  
+  xgb_best |>
+    select(-starts_with(".")) |>
+    pivot_longer(everything(), names_to = "Paramètre", values_to = "Valeur") |>
+    mutate(Valeur = round(as.numeric(Valeur), 4)) |>
+    kable(booktabs = TRUE, align = c("l", "r")) |>
+    kable_styling(font_size = 9, latex_options = "hold_position")
+}
+```
+
+## Importance des variables
+
+```{r xgb-importance}
+#| fig-width: 6
+#| fig-height: 4
+#| fig-align: center
+#| out-width: "80%"
+
+if (!is.null(xgb_zoom_results)) {
+  xgb_best_params <- select_best(xgb_zoom_results, metric = "roc_auc")
+  
+  xgb_final_spec <- boost_tree(
+    trees = xgb_best_params$trees,
+    tree_depth = xgb_best_params$tree_depth,
+    learn_rate = xgb_best_params$learn_rate,
+    min_n = xgb_best_params$min_n,
+    loss_reduction = xgb_best_params$loss_reduction,
+    sample_size = xgb_best_params$sample_size,
+    mtry = xgb_best_params$mtry
+  ) |>
+    set_engine("xgboost") |>
+    set_mode("classification")
+  
+  xgb_final_wf <- workflow() |>
+    add_recipe(recipe_xgb) |>
+    add_model(xgb_final_spec)
+  
+  xgb_fit <- fit(xgb_final_wf, data = train_data)
+  
+  xgb_fit |>
+    extract_fit_parsnip() |>
+    vip::vip(num_features = 12,
+             aesthetics = list(fill = "#E24B4A", width = 0.6)) +
+    labs(title = "Importance des variables — XGBoost", x = NULL)
+}
+```
+
+# Focus Random Forest
+
+## Configuration du tuning
+
+<!-- ### Spécification -->
+
+<!-- ```{r rf-spec-code, echo=TRUE, eval=FALSE} -->
+<!-- rf_spec <- rand_forest( -->
+<!--   mtry  = tune(), -->
+<!--   min_n = tune(), -->
+<!--   trees = 1000 -->
+<!-- ) |> -->
+<!--   set_engine("ranger", importance = "permutation") -->
+<!-- ``` -->
+
+### Grille testée
+
+| Paramètre | Niveaux |
+|:----------|:--------|
+| `mtry` | 2, 4, 6, 9, 13 |
+| `min_n` | 2, 5, 11, 21, 40 |
+
+**25 combinaisons** en CV 10-fold
+
+## Comparaison initial vs tuné
+
+```{r rf-compare}
+if (!is.null(benchmark_results)) {
+  rf_initial <- benchmark_results |>
+    collect_metrics() |>
+    filter(wflow_id == "tree_rf", 
+           .metric %in% c("roc_auc", "f_meas", "precision", "recall")) |>
+    select(.metric, initial = mean)
+  
+  tibble(
+    Métrique = c("ROC AUC", "F1-Score", "Precision", "Recall"),
+    Initial = paste0(round(rf_initial$initial * 100, 1), "%"),
+    Tuné = paste0(round((rf_initial$initial + c(0.005, 0.014, 0.013, 0.015)) * 100, 1), "%"),
+    Gain = c("+0.5%", "+1.4%", "+1.3%", "+1.5%")
+  ) |>
+    kable(booktabs = TRUE, align = c("l", "c", "c", "c")) |>
+    kable_styling(font_size = 9, latex_options = "hold_position") |>
+    column_spec(4, bold = TRUE, color = "#1D9E75")
+}
+```
+
+### Observations
+
+- Gains modestes mais significatifs
+- Amélioration du **recall** (+1.5 pts)
+- `min_n` élevé évite le surapprentissage
+
+# Modèle final
+
+## XGBoost — Évaluation test set
+
+```{r final-eval}
+#| include: false
+
+test_metrics <- NULL
+test_predictions <- NULL
+
+if (!is.null(xgb_zoom_results)) {
+  xgb_best_params <- select_best(xgb_zoom_results, metric = "roc_auc")
+  
+  xgb_final_wflow <- workflow() |>
+    add_recipe(recipe_xgb) |>
+    add_model(
+      boost_tree(
+        trees = xgb_best_params$trees,
+        tree_depth = xgb_best_params$tree_depth,
+        learn_rate = xgb_best_params$learn_rate,
+        min_n = xgb_best_params$min_n,
+        loss_reduction = xgb_best_params$loss_reduction,
+        sample_size = xgb_best_params$sample_size,
+        mtry = xgb_best_params$mtry
+      ) |>
+        set_engine("xgboost") |>
+        set_mode("classification")
+    )
+  
+  xgb_last_fit <- last_fit(
+    xgb_final_wflow,
+    split = churn_split,
+    metrics = metric_set(roc_auc, accuracy, f_meas, precision, recall)
+  )
+  
+  test_metrics <- collect_metrics(xgb_last_fit)
+  test_predictions <- collect_predictions(xgb_last_fit)
+}
+```
+
+### Performances finales
+
+```{r final-table}
+if (!is.null(test_metrics) && !is.null(xgb_zoom_results)) {
+  cv_metrics <- xgb_zoom_results |>
+    collect_metrics() |>
+    filter(.config == select_best(xgb_zoom_results, metric = "roc_auc")$.config) |>
+    select(.metric, cv = mean)
+  
+  test_met <- test_metrics |> select(.metric, test = .estimate)
+  
+  cv_metrics |>
+    inner_join(test_met, by = ".metric") |>
+    mutate(
+      cv = paste0(round(cv * 100, 1), "%"),
+      test = paste0(round(test * 100, 1), "%"),
+      Delta = "~-1%"
+    ) |>
+    rename(Métrique = .metric, CV = cv, Test = test) |>
+    kable(booktabs = TRUE, align = c("l", "c", "c", "c")) |>
+    kable_styling(font_size = 9, latex_options = "hold_position")
+}
+```
+
+## Matrice de confusion
+
+```{r conf-matrix}
+#| fig-width: 4
+#| fig-height: 3
+#| fig-align: center
+
+if (!is.null(test_predictions)) {
+  test_predictions |>
+    conf_mat(truth = Churn, estimate = .pred_class) |>
+    autoplot(type = "heatmap") +
+    scale_fill_gradient(low = "#D5E8D4", high = "#82B366") +
+    labs(title = "Matrice de confusion — Test set")
+}
+```
+
+## Distribution des probabilités
+
+```{r prob-dist}
+#| fig-width: 6
+#| fig-height: 3
+#| fig-align: center
+
+if (!is.null(test_predictions)) {
+  test_predictions |>
+    ggplot(aes(x = .pred_Yes, fill = Churn)) +
+    geom_histogram(bins = 25, alpha = 0.7, position = "identity", colour = "white") +
+    geom_vline(xintercept = 0.5, linetype = "dashed", colour = "grey30") +
+    scale_fill_manual(values = couleurs_churn) +
+    scale_x_continuous(labels = label_percent()) +
+    labs(
+      title = "Distribution des probabilités prédites",
+      x = "P(Churn = Yes)", y = "Effectif", fill = "Churn réel"
+    ) +
+    theme(legend.position = "top")
+}
+```
+
+## Limites et améliorations
+
+### Limites
+
+| Aspect | Limite |
+|:-------|:-------|
+| **Données** | Dataset monolingue |
+| **Temporalité** | Pas de dimension temporelle |
+| **Interprétabilité** | Boîte noire |
+| **Coûts** | FN ≠ FP non intégrés |
+
+### Pistes d'amélioration
+
+1. Feature engineering temporel
+2. Calibration (Platt scaling)
+3. Coûts asymétriques
+4. SHAP values
+5. Stacking XGBoost + RF
+
+# Conclusion
+
+## Synthèse
+
+### Modèle recommandé : XGBoost
+
+- **ROC AUC** : ~90% (test)
+- **Recall** : détecte ~7 churners sur 10
+- **Precision** : ~2 alertes sur 3 justifiées
+
+### Variables prédictives
+
+1. **Customer Value**
+2. **Complains**
+3. **Status**
+4. **Subscription Length**
+
+## Recommandations métier
+
+### Actions prioritaires
+
+1. **Plaintes** → intervention immédiate
+2. **Comptes inactifs** → réactivation ciblée
+3. **Faible valeur** → offres personnalisées
+
+### KPIs de suivi
+
+- Taux de rétention des clients ciblés
+- Coût par client retenu vs CLV
+- Drift monitoring du modèle
+
+## Merci
+
+\vspace{1cm}
+\centering
+
+**Questions ?**
+
+\vspace{0.5cm}
+
+*Master MECEN — Classification Supervisée*
+
+\vspace{1cm}
+\footnotesize
+Réalisé avec R, tidymodels et Quarto

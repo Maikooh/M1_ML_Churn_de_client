@@ -10,16 +10,16 @@
 #
 # Prérequis : objets issus de 02_echantillon_et_recipe.R et 03_model_spec.R
 
-library(tidymodels) 
+library(tidymodels)
 
 
 # ── Construction du workflow set ─────────────────────────────────────────────
 
 all_workflows <- workflow_set(
   preproc = list(
-    tree = recipe_tree, # arbres 
-    xgb  = recipe_xgb, # XGBoost 
-    dist = recipe_distance # distance + linéaire 
+    tree = recipe_tree, # arbres
+    xgb  = recipe_xgb, # XGBoost
+    dist = recipe_distance # distance + linéaire
   ),
   models = list(
     logit   = logit_spec, # baseline logistique (recipe_distance)
@@ -61,5 +61,30 @@ rm(list = setdiff(ls(), c(
   "logit_spec",
   "tree_spec", "bagging_spec", "rf_spec", "xgb_spec",
   "knn_spec", "svm_lin_spec", "svm_rad_spec",
-  "all_workflows"
+  "all_workflows",
+  "data",
+  "churn_split",
+  "train_data",
+  "test_data",
+  "churn_folds",
+  "recipe_tree",
+  "recipe_xgb",
+  "recipe_distance",
+  "logit_spec",
+  "tree_spec",
+  "bagging_spec",
+  "rf_spec",
+  "xgb_spec",
+  "knn_spec",
+  "svm_lin_spec",
+  "svm_rad_spec",
+  "tableau_presentation_donnees",
+  "tableau_summary_num",
+  "tableau_summary_cat",
+  "plot_desequilibre",
+  "plot_dist_num",
+  "plot_boxplot_churn",
+  "plot_correlation",
+  "plot_cat_churn",
+  "couleurs_churn"
 )))

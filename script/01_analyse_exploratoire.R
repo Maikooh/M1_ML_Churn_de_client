@@ -166,7 +166,6 @@ cor_long <- cor_matrix |>
   as.data.frame() |>
   rownames_to_column("Var1") |>
   pivot_longer(-Var1, names_to = "Var2", values_to = "r") |>
-  
   # Conserver uniquement le triangle inférieur pour éviter la redondance
   filter(Var1 >= Var2)
 
@@ -237,6 +236,7 @@ plot_cat_churn <- data |>
 
 rm(list = setdiff(ls(), c(
   "data",
+  "tableau_presentation_donnees",
   "tableau_summary_num",
   "tableau_summary_cat",
   "plot_desequilibre",

@@ -102,7 +102,7 @@ recipe_distance <- recipe(Churn ~ ., data = train_data) |>
 # ── 4. Vérification des recettes (optionnel) ─────────────────────────────────
 #
 # Mettre affichage_des_verifs <- TRUE pour inspecter les recettes préparées.
-# NE PAS activer lors du sourcing normal 
+# NE PAS activer lors du sourcing normal
 
 affichage_des_verifs <- FALSE
 
@@ -141,5 +141,14 @@ rm(list = setdiff(ls(), c(
   "churn_folds",
   "recipe_tree",
   "recipe_xgb",
-  "recipe_distance"
+  "recipe_distance",
+  "tableau_presentation_donnees",
+  "tableau_summary_num",
+  "tableau_summary_cat",
+  "plot_desequilibre",
+  "plot_dist_num",
+  "plot_boxplot_churn",
+  "plot_correlation",
+  "plot_cat_churn",
+  "couleurs_churn"
 )))

@@ -56,7 +56,7 @@ churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
 rds_path <- "data/benchmark_results_churn.rds"
 
 if (file.exists(rds_path)) {
-  # Chargement des résultats existants pour éviter un recalcul 
+  # Chargement des résultats existants pour éviter un recalcul
   message("Chargement des résultats existants depuis ", rds_path)
   benchmark_results <- readRDS(rds_path)
 } else {
@@ -115,14 +115,33 @@ plot_benchmark_all <- autoplot(benchmark_results, metric = c("roc_auc", "f_meas"
 
 rm(list = setdiff(ls(), c(
   "data",
-  "churn_split", "train_data", "test_data", "churn_folds",
-  "recipe_tree", "recipe_xgb", "recipe_distance",
+  "churn_split",
+  "train_data",
+  "test_data",
+  "churn_folds",
+  "recipe_tree",
+  "recipe_xgb",
+  "recipe_distance",
   "logit_spec",
-  "tree_spec", "bagging_spec", "rf_spec", "xgb_spec",
-  "knn_spec", "svm_lin_spec", "svm_rad_spec",
+  "tree_spec",
+  "bagging_spec",
+  "rf_spec",
+  "xgb_spec",
+  "knn_spec",
+  "svm_lin_spec",
+  "svm_rad_spec",
   "all_workflows",
   "churn_metrics",
   "benchmark_results",
   "plot_benchmark_roc",
-  "plot_benchmark_all"
+  "plot_benchmark_all",
+  "tableau_presentation_donnees",
+  "tableau_summary_num",
+  "tableau_summary_cat",
+  "plot_desequilibre",
+  "plot_dist_num",
+  "plot_boxplot_churn",
+  "plot_correlation",
+  "plot_cat_churn",
+  "couleurs_churn"
 )))
