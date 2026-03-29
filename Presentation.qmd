@@ -39,7 +39,6 @@ execute:
 # ══════════════════════════════════════════════════════════════════════════════
 # CHARGEMENT DES PACKAGES
 # ══════════════════════════════════════════════════════════════════════════════
-
 library(tidyverse)
 library(tidymodels)
 library(knitr)
@@ -280,57 +279,77 @@ ggplot(prop_churn, aes(x = Churn, y = n, fill = Churn)) +
 - **Solution** : SMOTE pour rééquilibrer
 - **Métrique principale** : ROC AUC
 
-## Statistiques descriptives — Variables numériques
+## Distribution des variables numériques
 
-```{r summary-num}
-data |>
-  select(where(is.numeric)) |>
-  pivot_longer(everything(), names_to = "Variable") |>
-  group_by(Variable) |>
-  summarise(
-    Min     = min(value, na.rm = TRUE),
-    Médiane = median(value, na.rm = TRUE),
-    Moyenne = round(mean(value, na.rm = TRUE), 1),
-    Max     = max(value, na.rm = TRUE),
-    `E.T.`  = round(sd(value, na.rm = TRUE), 1)
-  ) |>
-  kable(booktabs = TRUE, align = c("l", rep("r", 5))) |>
-  kable_styling(font_size = 8, latex_options = c("striped", "hold_position"))
+```{r}
+plot_dist_num <- data |>
+  select(where(is.numeric), Churn) |>
+  pivot_longer(-Churn, names_to = "Variable") |>
+  ggplot(aes(x = value, fill = Churn, colour = Churn)) +
+  geom_density(alpha = 0.35, linewidth = 0.5) +
+  facet_wrap(~Variable, scales = "free", ncol = 3) +
+  scale_fill_manual(values = couleurs_churn) +
+  scale_colour_manual(values = couleurs_churn) +
+  labs(
+    title    = "Distribution des variables numériques par classe",
+    subtitle = "Les variables avec des courbes bien séparées ont un fort pouvoir discriminant",
+    x        = NULL,
+    y        = "Densité",
+    fill     = "Churn",
+    colour   = "Churn"
+  )
 ```
 
-## Variables discriminantes — Corrélations
 
-```{r correlation}
-#| fig-width: 6
-#| fig-height: 4
-#| fig-align: center
-
-cor_matrix <- data |>
-  select(where(is.numeric)) |>
-  cor(use = "pairwise.complete.obs", method = "pearson")
-
-cor_long <- cor_matrix |>
-  as.data.frame() |>
-  rownames_to_column("Var1") |>
-  pivot_longer(-Var1, names_to = "Var2", values_to = "r") |>
-  filter(Var1 >= Var2)
-
-ggplot(cor_long, aes(x = Var1, y = Var2, fill = r)) +
-  geom_tile(colour = "white", linewidth = 0.3) +
-  geom_text(aes(label = round(r, 2)), size = 2,
-            colour = ifelse(abs(cor_long$r) > 0.5, "white", "grey30")) +
-  scale_fill_gradient2(
-    low = "#185FA5", mid = "white", high = "#A32D2D",
-    midpoint = 0, limits = c(-1, 1), name = "r"
-  ) +
-  coord_equal() +
-  theme(
-    axis.text.x = element_text(angle = 40, hjust = 1, size = 5),
-    axis.text.y = element_text(size = 5),
-    panel.grid = element_blank()
-  ) +
-  labs(title = "Matrice de corrélation", x = NULL, y = NULL)
+# ```{r summary-num}
+# data |>
+#   select(where(is.numeric)) |>
+#   pivot_longer(everything(), names_to = "Variable") |>
+#   group_by(Variable) |>
+#   summarise(
+#     Min     = min(value, na.rm = TRUE),
+#     Médiane = median(value, na.rm = TRUE),
+#     Moyenne = round(mean(value, na.rm = TRUE), 1),
+#     Max     = max(value, na.rm = TRUE),
+#     `E.T.`  = round(sd(value, na.rm = TRUE), 1)
+#   ) |>
+#   kable(booktabs = TRUE, align = c("l", rep("r", 5))) |>
+#   kable_styling(font_size = 8, latex_options = c("striped", "hold_position"))
 ```
+
+
+
+<!-- ```{r correlation} -->
+<!-- #| fig-width: 6 -->
+<!-- #| fig-height: 4 -->
+<!-- #| fig-align: center -->
+
+<!-- cor_matrix <- data |> -->
+<!--   select(where(is.numeric)) |> -->
+<!--   cor(use = "pairwise.complete.obs", method = "pearson") -->
+
+<!-- cor_long <- cor_matrix |> -->
+<!--   as.data.frame() |> -->
+<!--   rownames_to_column("Var1") |> -->
+<!--   pivot_longer(-Var1, names_to = "Var2", values_to = "r") |> -->
+<!--   filter(Var1 >= Var2) -->
+
+<!-- ggplot(cor_long, aes(x = Var1, y = Var2, fill = r)) + -->
+<!--   geom_tile(colour = "white", linewidth = 0.3) + -->
+<!--   geom_text(aes(label = round(r, 2)), size = 2, -->
+<!--             colour = ifelse(abs(cor_long$r) > 0.5, "white", "grey30")) + -->
+<!--   scale_fill_gradient2( -->
+<!--     low = "#185FA5", mid = "white", high = "#A32D2D", -->
+<!--     midpoint = 0, limits = c(-1, 1), name = "r" -->
+<!--   ) + -->
+<!--   coord_equal() + -->
+<!--   theme( -->
+<!--     axis.text.x = element_text(angle = 40, hjust = 1, size = 5), -->
+<!--     axis.text.y = element_text(size = 5), -->
+<!--     panel.grid = element_blank() -->
+<!--   ) + -->
+<!--   labs(title = "Matrice de corrélation", x = NULL, y = NULL) -->
+<!-- ``` -->
 
 ## Variables catégorielles — Taux de churn
 

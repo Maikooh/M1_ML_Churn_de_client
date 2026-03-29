@@ -1,0 +1,811 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+  10pt,
+  ignorenonframetext,
+  aspectratio=169,
+]{beamer}
+\usepackage{pgfpages}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{caption label separator}{: }
+\setbeamercolor{caption name}{fg=normal text.fg}
+\beamertemplatenavigationsymbolshorizontal
+% Prevent slide breaks in the middle of a paragraph
+\widowpenalties 1 10000
+\raggedbottom
+\setbeamertemplate{part page}{
+  \centering
+  \begin{beamercolorbox}[sep=16pt,center]{part title}
+    \usebeamerfont{part title}\insertpart\par
+  \end{beamercolorbox}
+}
+\setbeamertemplate{section page}{
+  \centering
+  \begin{beamercolorbox}[sep=12pt,center]{part title}
+    \usebeamerfont{section title}\insertsection\par
+  \end{beamercolorbox}
+}
+\setbeamertemplate{subsection page}{
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center]{part title}
+    \usebeamerfont{subsection title}\insertsubsection\par
+  \end{beamercolorbox}
+}
+\AtBeginPart{
+  \frame{\partpage}
+}
+\AtBeginSection{
+  \ifbibliography
+  \else
+    \frame{\sectionpage}
+  \fi
+}
+\AtBeginSubsection{
+  \frame{\subsectionpage}
+}
+
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\usetheme[]{Madrid}
+\usecolortheme{seahorse}
+\usefonttheme{structurebold}
+\ifPDFTeX\else  
+    % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\newif\ifbibliography
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+\usepackage{caption}
+% Make caption package work with longtable
+\makeatletter
+\def\fnum@table{\tablename~\thetable}
+\makeatother
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\definecolor{churnYes}{HTML}{E24B4A}
+\definecolor{churnNo}{HTML}{4999DA}
+\definecolor{accent}{HTML}{185FA5}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{itemize items}[circle]
+\setbeamertemplate{enumerate items}[default]
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\AtBeginDocument{%
+\ifdefined\contentsname
+  \renewcommand*\contentsname{Table of contents}
+\else
+  \newcommand\contentsname{Table of contents}
+\fi
+\ifdefined\listfigurename
+  \renewcommand*\listfigurename{List of Figures}
+\else
+  \newcommand\listfigurename{List of Figures}
+\fi
+\ifdefined\listtablename
+  \renewcommand*\listtablename{List of Tables}
+\else
+  \newcommand\listtablename{List of Tables}
+\fi
+\ifdefined\figurename
+  \renewcommand*\figurename{Figure}
+\else
+  \newcommand\figurename{Figure}
+\fi
+\ifdefined\tablename
+  \renewcommand*\tablename{Table}
+\else
+  \newcommand\tablename{Table}
+\fi
+}
+\@ifpackageloaded{float}{}{\usepackage{float}}
+\floatstyle{ruled}
+\@ifundefined{c@chapter}{\newfloat{codelisting}{h}{lop}}{\newfloat{codelisting}{h}{lop}[chapter]}
+\floatname{codelisting}{Listing}
+\newcommand*\listoflistings{\listof{codelisting}{List of Listings}}
+\makeatother
+\makeatletter
+\makeatother
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
+\makeatother
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\usepackage{bookmark}
+
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same} % disable monospaced font for URLs
+\hypersetup{
+  pdftitle={Prédiction du Churn Client},
+  pdfauthor={Master MECEN --- Semestre 2},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Prédiction du Churn Client}
+\subtitle{Classification supervisée avec tidymodels}
+\author{Master MECEN --- Semestre 2}
+\date{29 March 2026}
+
+\begin{document}
+\frame{\titlepage}
+
+\renewcommand*\contentsname{Table of contents}
+\begin{frame}[allowframebreaks]
+  \frametitle{Table of contents}
+  \tableofcontents[hideallsubsections]
+\end{frame}
+\section{Introduction}\label{introduction}
+
+\begin{frame}{Contexte et objectif}
+\phantomsection\label{contexte-et-objectif}
+\begin{block}{Problématique métier}
+\phantomsection\label{probluxe9matique-muxe9tier}
+Le \textbf{churn} (désabonnement) représente un enjeu majeur pour les
+opérateurs télécoms :
+
+\begin{itemize}
+\tightlist
+\item
+  Coût d'acquisition d'un nouveau client : \textbf{5 à 25×} le coût de
+  rétention
+\item
+  Identifier les clients à risque permet des \textbf{actions préventives
+  ciblées}
+\item
+  Optimisation des ressources marketing et fidélisation
+\end{itemize}
+\end{block}
+
+\begin{block}{Objectif de l'étude}
+\phantomsection\label{objectif-de-luxe9tude}
+\begin{quote}
+Développer un modèle prédictif performant pour identifier les clients
+susceptibles de résilier leur abonnement.
+\end{quote}
+
+\textbf{Source} : Iranian Churn Dataset (UCI Machine Learning
+Repository)
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Méthodologie adoptée}
+\phantomsection\label{muxe9thodologie-adoptuxe9e}
+\begin{block}{Pipeline de modélisation}
+\phantomsection\label{pipeline-de-moduxe9lisation}
+\begin{center}
+\textbf{EDA} $\rightarrow$ \textbf{Preprocessing} $\rightarrow$ \textbf{Benchmark} $\rightarrow$ \textbf{Tuning} $\rightarrow$ \textbf{Évaluation}
+\end{center}
+\end{block}
+
+\begin{block}{Framework technique}
+\phantomsection\label{framework-technique}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Langage} : R avec l'écosystème \texttt{tidymodels}
+\item
+  \textbf{Packages} : \texttt{recipes}, \texttt{parsnip},
+  \texttt{workflows}, \texttt{tune}, \texttt{yardstick}, \texttt{themis}
+\item
+  \textbf{Validation} : Cross-validation stratifiée (10 folds)
+\item
+  \textbf{Métriques} : ROC AUC (principale), F1-score, Precision, Recall
+\end{itemize}
+\end{block}
+\end{frame}
+
+\section{Présentation des données}\label{pruxe9sentation-des-donnuxe9es}
+
+\begin{frame}{Vue d'ensemble du dataset}
+\phantomsection\label{vue-densemble-du-dataset}
+\begingroup\fontsize{9}{11}\selectfont
+
+\begin{longtable*}[t]{lc}
+\toprule
+Caractéristique & Valeur\\
+\midrule
+Observations & 3 150\\
+Variables & 14\\
+Variable cible & Churn (binaire)\\
+Numériques & 8\\
+Catégorielles & 6\\
+\addlinespace
+Valeurs manquantes & 0\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+
+\begin{block}{Caractéristiques}
+\phantomsection\label{caractuxe9ristiques}
+Données issues d'un opérateur télécom iranien :
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Comportement d'usage} : appels, SMS, durée d'utilisation
+\item
+  \textbf{Profil client} : âge, ancienneté, valeur client
+\item
+  \textbf{Relation commerciale} : plaintes, forfait, statut
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Dictionnaire des variables}
+\phantomsection\label{dictionnaire-des-variables}
+\begingroup\fontsize{7}{9}\selectfont
+
+\begin{longtable*}[t]{llc}
+\toprule
+ & Type & Description\\
+\midrule
+\cellcolor{gray!10}{Call  Failure} & \cellcolor{gray!10}{Entier} & \cellcolor{gray!10}{Nombre d'appels échoués}\\
+Complains & Facteur & Indicateur de plainte\\
+\cellcolor{gray!10}{Subscription  Length} & \cellcolor{gray!10}{Entier} & \cellcolor{gray!10}{Durée abonnement (mois)}\\
+Charge  Amount & Ordonné & Montant facturé (0-10)\\
+\cellcolor{gray!10}{Seconds of Use} & \cellcolor{gray!10}{Entier} & \cellcolor{gray!10}{Secondes d'appels}\\
+\addlinespace
+Frequency of use & Entier & Nombre total d'appels\\
+\cellcolor{gray!10}{Frequency of SMS} & \cellcolor{gray!10}{Entier} & \cellcolor{gray!10}{Nombre de SMS}\\
+Distinct Called Numbers & Entier & Numéros uniques appelés\\
+\cellcolor{gray!10}{Age Group} & \cellcolor{gray!10}{Ordonné} & \cellcolor{gray!10}{Tranche d'âge (1-5)}\\
+Tariff Plan & Facteur & Type de forfait\\
+\addlinespace
+\cellcolor{gray!10}{Status} & \cellcolor{gray!10}{Facteur} & \cellcolor{gray!10}{Statut du compte}\\
+Age & Entier & Âge du client\\
+\cellcolor{gray!10}{Customer Value} & \cellcolor{gray!10}{Numérique} & \cellcolor{gray!10}{Valeur client estimée}\\
+\textcolor[HTML]{E24B4A}{\textbf{Churn}} & \textcolor[HTML]{E24B4A}{\textbf{Facteur}} & \textcolor[HTML]{E24B4A}{\textbf{Cible : churn}}\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+\end{frame}
+
+\section{Analyse exploratoire}\label{analyse-exploratoire}
+
+\begin{frame}{Déséquilibre de la variable cible}
+\phantomsection\label{duxe9suxe9quilibre-de-la-variable-cible}
+\begin{center}
+\includegraphics{Presentation_files/figure-beamer/desequilibre-1.pdf}
+\end{center}
+
+\begin{block}{Conséquence méthodologique}
+\phantomsection\label{consuxe9quence-muxe9thodologique}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Accuracy trompeuse} : modèle naïf → 84\%
+\item
+  \textbf{Solution} : SMOTE pour rééquilibrer
+\item
+  \textbf{Métrique principale} : ROC AUC
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Distribution des variables numériques}
+\phantomsection\label{distribution-des-variables-numuxe9riques}
+\end{frame}
+
+\section{\texorpdfstring{\texttt{\{r\ summary-num\}\ \#\ data\ \textbar{}\textgreater{}\ \#\ \ \ select(where(is.numeric))\ \textbar{}\textgreater{}\ \#\ \ \ pivot\_longer(everything(),\ names\_to\ =\ "Variable")\ \textbar{}\textgreater{}\ \#\ \ \ group\_by(Variable)\ \textbar{}\textgreater{}\ \#\ \ \ summarise(\ \#\ \ \ \ \ Min\ \ \ \ \ =\ min(value,\ na.rm\ =\ TRUE),\ \#\ \ \ \ \ Médiane\ =\ median(value,\ na.rm\ =\ TRUE),\ \#\ \ \ \ \ Moyenne\ =\ round(mean(value,\ na.rm\ =\ TRUE),\ 1),\ \#\ \ \ \ \ Max\ \ \ \ \ =\ max(value,\ na.rm\ =\ TRUE),\ \#\ \ \ \ \ \textasciigrave{}E.T.\textasciigrave{}\ \ =\ round(sd(value,\ na.rm\ =\ TRUE),\ 1)\ \#\ \ \ )\ \textbar{}\textgreater{}\ \#\ \ \ kable(booktabs\ =\ TRUE,\ align\ =\ c("l",\ rep("r",\ 5)))\ \textbar{}\textgreater{}\ \#\ \ \ kable\_styling(font\_size\ =\ 8,\ latex\_options\ =\ c("striped",\ "hold\_position"))}}{\{r summary-num\} \# data \textbar\textgreater{} \#   select(where(is.numeric)) \textbar\textgreater{} \#   pivot\_longer(everything(), names\_to = "Variable") \textbar\textgreater{} \#   group\_by(Variable) \textbar\textgreater{} \#   summarise( \#     Min     = min(value, na.rm = TRUE), \#     Médiane = median(value, na.rm = TRUE), \#     Moyenne = round(mean(value, na.rm = TRUE), 1), \#     Max     = max(value, na.rm = TRUE), \#     `E.T.`  = round(sd(value, na.rm = TRUE), 1) \#   ) \textbar\textgreater{} \#   kable(booktabs = TRUE, align = c("l", rep("r", 5))) \textbar\textgreater{} \#   kable\_styling(font\_size = 8, latex\_options = c("striped", "hold\_position"))}}\label{r-summary-num-data-selectwhereis.numeric-pivot_longereverything-names_to-variable-group_byvariable-summarise-min-minvalue-na.rm-true-muxe9diane-medianvalue-na.rm-true-moyenne-roundmeanvalue-na.rm-true-1-max-maxvalue-na.rm-true-e.t.-roundsdvalue-na.rm-true-1-kablebooktabs-true-align-cl-repr-5-kable_stylingfont_size-8-latex_options-cstriped-hold_position}
+
+\begin{frame}{\texttt{\{r\ summary-num\}\ \#\ data\ \textbar{}\textgreater{}\ \#\ \ \ select(where(is.numeric))\ \textbar{}\textgreater{}\ \#\ \ \ pivot\_longer(everything(),\ names\_to\ =\ "Variable")\ \textbar{}\textgreater{}\ \#\ \ \ group\_by(Variable)\ \textbar{}\textgreater{}\ \#\ \ \ summarise(\ \#\ \ \ \ \ Min\ \ \ \ \ =\ min(value,\ na.rm\ =\ TRUE),\ \#\ \ \ \ \ Médiane\ =\ median(value,\ na.rm\ =\ TRUE),\ \#\ \ \ \ \ Moyenne\ =\ round(mean(value,\ na.rm\ =\ TRUE),\ 1),\ \#\ \ \ \ \ Max\ \ \ \ \ =\ max(value,\ na.rm\ =\ TRUE),\ \#\ \ \ \ \ \textasciigrave{}E.T.\textasciigrave{}\ \ =\ round(sd(value,\ na.rm\ =\ TRUE),\ 1)\ \#\ \ \ )\ \textbar{}\textgreater{}\ \#\ \ \ kable(booktabs\ =\ TRUE,\ align\ =\ c("l",\ rep("r",\ 5)))\ \textbar{}\textgreater{}\ \#\ \ \ kable\_styling(font\_size\ =\ 8,\ latex\_options\ =\ c("striped",\ "hold\_position"))}}
+\end{frame}
+
+\begin{frame}{Variables catégorielles --- Taux de churn}
+\phantomsection\label{variables-catuxe9gorielles-taux-de-churn}
+\begin{center}
+\includegraphics{Presentation_files/figure-beamer/cat-churn-1.pdf}
+\end{center}
+\end{frame}
+
+\begin{frame}{Synthèse EDA --- Variables clés}
+\phantomsection\label{synthuxe8se-eda-variables-cluxe9s}
+\begin{block}{Variables à fort pouvoir discriminant}
+\phantomsection\label{variables-uxe0-fort-pouvoir-discriminant}
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Variable & Observation & Implication \\
+\midrule\noalign{}
+\endhead
+\textbf{Complains} & Beaucoup de plainte → churn & Prédicteur majeur \\
+\textbf{Status} & Comptes inactifs & Signal fort \\
+\textbf{Frequency of use} & Faible usage → churn & Engagement \\
+\textbf{Customer Value} & Valeurs extrêmes & Segmentation \\
+\bottomrule\noalign{}
+\end{longtable}
+\end{block}
+
+\begin{block}{Points de vigilance}
+\phantomsection\label{points-de-vigilance}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Multicolinéarité} : Frequency of use ↔ Seconds of Use (r ≈
+  0.95)
+\item
+  \textbf{Variables ordinales} : Age Group, Charge Amount
+\end{itemize}
+\end{block}
+\end{frame}
+
+\section{Preprocessing}\label{preprocessing}
+
+\begin{frame}[fragile]{Stratégie d'échantillonnage}
+\phantomsection\label{stratuxe9gie-duxe9chantillonnage}
+\begin{block}{Split train / test = 80\%}
+\phantomsection\label{split-train-test-80}
+\begingroup\fontsize{9}{11}\selectfont
+
+\begin{longtable*}[t]{lrc}
+\toprule
+Ensemble & Observations & Ratio Churn = Yes\\
+\midrule
+Train & 2520 & 15.7\%\\
+Test & 630 & 15.7\%\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+\end{block}
+
+\begin{block}{Validation croisée}
+\phantomsection\label{validation-croisuxe9e}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{10 folds stratifiés} sur le train set
+\item
+  Stratification sur \texttt{Churn} → \textasciitilde16\% de ``Yes'' par
+  fold
+\item
+  Estimations robustes et comparables
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Recettes différenciées par famille}
+\phantomsection\label{recettes-diffuxe9renciuxe9es-par-famille}
+\begin{block}{Principe (cf.~tmwr.org/pre-proc-table)}
+\phantomsection\label{principe-cf.-tmwr.orgpre-proc-table}
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Recette & Modèles & Spécificités \\
+\midrule\noalign{}
+\endhead
+\texttt{recipe\_tree} & RF, Bagging, DT & Pas de dummies ni
+normalisation \\
+\texttt{recipe\_xgb} & XGBoost & Dummies one-hot \\
+\texttt{recipe\_distance} & KNN, SVM, Logit & Normalisation + dummies \\
+\bottomrule\noalign{}
+\end{longtable}
+\end{block}
+
+\begin{block}{Gestion du déséquilibre}
+\phantomsection\label{gestion-du-duxe9suxe9quilibre}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{SMOTENC} pour arbres (préserve les facteurs)
+\item
+  \textbf{SMOTE} après dummification pour les autres
+\item
+  Application en \textbf{dernière étape} uniquement
+\end{itemize}
+\end{block}
+\end{frame}
+
+\section{Benchmark initial}\label{benchmark-initial}
+
+\begin{frame}{Modèles en compétition}
+\phantomsection\label{moduxe8les-en-compuxe9tition}
+\begin{block}{Arbres et ensemble}
+\phantomsection\label{arbres-et-ensemble}
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Modèle & Caractéristique \\
+\midrule\noalign{}
+\endhead
+Decision Tree & Interprétable \\
+Bagging & mtry = p \\
+Random Forest & mtry = √p, 500 arbres \\
+XGBoost & Boosting, early stopping \\
+\bottomrule\noalign{}
+\end{longtable}
+\end{block}
+
+\begin{block}{Distance}
+\phantomsection\label{distance}
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Modèle & Caractéristique \\
+\midrule\noalign{}
+\endhead
+KNN & k = 10 \\
+SVM linéaire & Frontière linéaire \\
+SVM RBF & Kernel radial \\
+\bottomrule\noalign{}
+\end{longtable}
+\end{block}
+\end{frame}
+
+\begin{frame}{Résultats --- ROC AUC}
+\phantomsection\label{ruxe9sultats-roc-auc}
+\begin{center}
+\includegraphics[width=0.8\textwidth,height=\textheight]{Presentation_files/figure-beamer/benchmark-roc-1.pdf}
+\end{center}
+\end{frame}
+
+\begin{frame}{Tableau comparatif}
+\phantomsection\label{tableau-comparatif}
+\begingroup\fontsize{8}{10}\selectfont
+
+\begin{longtable*}[t]{lcccc}
+\toprule
+Modèle & F1 & Prec. & Recall & ROC AUC\\
+\midrule
+\cellcolor{gray!10}{xgb\_xgb} & \cellcolor{gray!10}{97.6\%} & \cellcolor{gray!10}{97.5\%} & \cellcolor{gray!10}{97.6\%} & \cellcolor{gray!10}{98.5\%}\\
+tree\_rf & 97.5\% & 98.5\% & 96.5\% & 98.4\%\\
+\cellcolor{gray!10}{tree\_bag} & \cellcolor{gray!10}{97.2\%} & \cellcolor{gray!10}{97.7\%} & \cellcolor{gray!10}{96.7\%} & \cellcolor{gray!10}{97.5\%}\\
+dist\_knn & 96.3\% & 97.8\% & 94.9\% & 96.7\%\\
+\cellcolor{gray!10}{dist\_svm\_rad} & \cellcolor{gray!10}{91.9\%} & \cellcolor{gray!10}{98.8\%} & \cellcolor{gray!10}{85.8\%} & \cellcolor{gray!10}{96.3\%}\\
+\addlinespace
+dist\_logit & 90\% & 97.1\% & 83.9\% & 93.2\%\\
+\cellcolor{gray!10}{dist\_svm\_lin} & \cellcolor{gray!10}{90.5\%} & \cellcolor{gray!10}{96.9\%} & \cellcolor{gray!10}{84.8\%} & \cellcolor{gray!10}{92.9\%}\\
+tree\_dt & 91.7\% & 98.1\% & 86.2\% & 91.7\%\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+\end{frame}
+
+\begin{frame}{Courbes ROC}
+\phantomsection\label{courbes-roc}
+\begin{center}
+\includegraphics[width=0.8\textwidth,height=\textheight]{Presentation_files/figure-beamer/roc-curves-1.pdf}
+\end{center}
+\end{frame}
+
+\section{Focus XGBoost --- Tuning}\label{focus-xgboost-tuning}
+
+\begin{frame}[fragile]{Stratégie en 2 phases}
+\phantomsection\label{stratuxe9gie-en-2-phases}
+\begin{block}{Phase 1 : Exploration large}
+\phantomsection\label{phase-1-exploration-large}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Méthode} : Latin Hypercube (50 combinaisons)
+\item
+  \textbf{Algorithme} : \texttt{tune\_race\_anova()}
+\end{itemize}
+\end{block}
+
+\begin{block}{Phase 2 : Zoom local}
+\phantomsection\label{phase-2-zoom-local}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Méthode} : Grille resserrée (40 combinaisons)
+\item
+  \textbf{Validation} : CV 10-fold stratifié
+\end{itemize}
+\end{block}
+
+\begin{block}{Hyperparamètres tunés}
+\phantomsection\label{hyperparamuxe8tres-tunuxe9s}
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Paramètre & Range \\
+\midrule\noalign{}
+\endhead
+\texttt{trees} & 50 -- 900 \\
+\texttt{tree\_depth} & 1 -- 6 \\
+\texttt{learn\_rate} & 0.001 -- 0.1 \\
+\texttt{min\_n} & 2 -- 20 \\
+\bottomrule\noalign{}
+\end{longtable}
+\end{block}
+\end{frame}
+
+\begin{frame}{Visualisation du tuning}
+\phantomsection\label{visualisation-du-tuning}
+\begin{center}
+\includegraphics[width=0.8\textwidth,height=\textheight]{Presentation_files/figure-beamer/xgb-tuning-1.pdf}
+\end{center}
+\end{frame}
+
+\begin{frame}{Meilleurs hyperparamètres en phase 2}
+\phantomsection\label{meilleurs-hyperparamuxe8tres-en-phase-2}
+\begingroup\fontsize{9}{11}\selectfont
+
+\begin{longtable*}[t]{lr}
+\toprule
+Paramètre & Valeur\\
+\midrule
+mtry & 7.0000\\
+trees & 549.0000\\
+min\_n & 5.0000\\
+tree\_depth & 3.0000\\
+learn\_rate & 0.0616\\
+\addlinespace
+loss\_reduction & 0.0173\\
+sample\_size & 0.9192\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+\end{frame}
+
+\begin{frame}{Importance des variables}
+\phantomsection\label{importance-des-variables}
+\begin{center}
+\includegraphics[width=0.8\textwidth,height=\textheight]{Presentation_files/figure-beamer/xgb-importance-1.pdf}
+\end{center}
+\end{frame}
+
+\section{Focus Random Forest}\label{focus-random-forest}
+
+\begin{frame}[fragile]{Configuration du tuning}
+\phantomsection\label{configuration-du-tuning}
+\begin{block}{Grille testée}
+\phantomsection\label{grille-testuxe9e}
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Paramètre & Niveaux \\
+\midrule\noalign{}
+\endhead
+\texttt{mtry} & 2, 4, 6, 9, 13 \\
+\texttt{min\_n} & 2, 5, 11, 21, 40 \\
+\bottomrule\noalign{}
+\end{longtable}
+
+\textbf{25 combinaisons} en CV 10-fold
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Comparaison initial vs tuné}
+\phantomsection\label{comparaison-initial-vs-tunuxe9}
+\begingroup\fontsize{9}{11}\selectfont
+
+\begin{longtable*}[t]{lcc>{}c}
+\toprule
+Métrique & Initial & Tuné & Gain\\
+\midrule
+ROC AUC & 97.5\% & 98\% & \textcolor[HTML]{1D9E75}{\textbf{+0.5\%}}\\
+F1-Score & 98.5\% & 99.9\% & \textcolor[HTML]{1D9E75}{\textbf{+1.4\%}}\\
+Precision & 96.5\% & 97.8\% & \textcolor[HTML]{1D9E75}{\textbf{+1.3\%}}\\
+Recall & 98.4\% & 99.9\% & \textcolor[HTML]{1D9E75}{\textbf{+1.5\%}}\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+
+\begin{block}{Observations}
+\phantomsection\label{observations}
+\begin{itemize}
+\tightlist
+\item
+  Gains modestes mais significatifs
+\item
+  Amélioration du \textbf{recall} (+1.5 pts)
+\item
+  \texttt{min\_n} élevé évite le surapprentissage
+\end{itemize}
+\end{block}
+\end{frame}
+
+\section{Modèle final}\label{moduxe8le-final}
+
+\begin{frame}{XGBoost --- Évaluation test set}
+\phantomsection\label{xgboost-uxe9valuation-test-set}
+\begin{block}{Performances finales}
+\phantomsection\label{performances-finales}
+\begingroup\fontsize{9}{11}\selectfont
+
+\begin{longtable*}[t]{lccc}
+\toprule
+Métrique & CV & Test & Delta\\
+\midrule
+f\_meas & 97.4\% & 97.4\% & \textasciitilde{}-1\%\\
+precision & 98.3\% & 98.6\% & \textasciitilde{}-1\%\\
+recall & 96.5\% & 96.2\% & \textasciitilde{}-1\%\\
+roc\_auc & 98.7\% & 98.9\% & \textasciitilde{}-1\%\\
+\bottomrule
+\end{longtable*}
+\endgroup{}
+\end{block}
+\end{frame}
+
+\begin{frame}{Matrice de confusion}
+\phantomsection\label{matrice-de-confusion}
+\begin{center}
+\includegraphics{Presentation_files/figure-beamer/conf-matrix-1.pdf}
+\end{center}
+\end{frame}
+
+\begin{frame}{Distribution des probabilités}
+\phantomsection\label{distribution-des-probabilituxe9s}
+\begin{center}
+\includegraphics{Presentation_files/figure-beamer/prob-dist-1.pdf}
+\end{center}
+\end{frame}
+
+\begin{frame}{Limites et améliorations}
+\phantomsection\label{limites-et-amuxe9liorations}
+\begin{block}{Limites}
+\phantomsection\label{limites}
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+Aspect & Limite \\
+\midrule\noalign{}
+\endhead
+\textbf{Données} & Dataset monolingue \\
+\textbf{Temporalité} & Pas de dimension temporelle \\
+\textbf{Interprétabilité} & Boîte noire \\
+\textbf{Coûts} & FN ≠ FP non intégrés \\
+\bottomrule\noalign{}
+\end{longtable}
+\end{block}
+
+\begin{block}{Pistes d'amélioration}
+\phantomsection\label{pistes-damuxe9lioration}
+\begin{enumerate}
+\tightlist
+\item
+  Feature engineering temporel
+\item
+  Calibration (Platt scaling)
+\item
+  Coûts asymétriques
+\item
+  SHAP values
+\item
+  Stacking XGBoost + RF
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\section{Conclusion}\label{conclusion}
+
+\begin{frame}{Synthèse}
+\phantomsection\label{synthuxe8se}
+\begin{block}{Modèle recommandé : XGBoost}
+\phantomsection\label{moduxe8le-recommanduxe9-xgboost}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{ROC AUC} : \textasciitilde90\% (test)
+\item
+  \textbf{Recall} : détecte \textasciitilde7 churners sur 10
+\item
+  \textbf{Precision} : \textasciitilde2 alertes sur 3 justifiées
+\end{itemize}
+\end{block}
+
+\begin{block}{Variables prédictives}
+\phantomsection\label{variables-pruxe9dictives}
+\begin{enumerate}
+\tightlist
+\item
+  \textbf{Customer Value}
+\item
+  \textbf{Complains}
+\item
+  \textbf{Status}
+\item
+  \textbf{Subscription Length}
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\begin{frame}{Recommandations métier}
+\phantomsection\label{recommandations-muxe9tier}
+\begin{block}{Actions prioritaires}
+\phantomsection\label{actions-prioritaires}
+\begin{enumerate}
+\tightlist
+\item
+  \textbf{Plaintes} → intervention immédiate
+\item
+  \textbf{Comptes inactifs} → réactivation ciblée
+\item
+  \textbf{Faible valeur} → offres personnalisées
+\end{enumerate}
+\end{block}
+
+\begin{block}{KPIs de suivi}
+\phantomsection\label{kpis-de-suivi}
+\begin{itemize}
+\tightlist
+\item
+  Taux de rétention des clients ciblés
+\item
+  Coût par client retenu vs CLV
+\item
+  Drift monitoring du modèle
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Merci}
+\phantomsection\label{merci}
+\vspace{1cm}
+\centering
+
+\textbf{Questions ?}
+
+\vspace{0.5cm}
+
+\emph{Master MECEN --- Classification Supervisée}
+
+\vspace{1cm}
+\footnotesize
+
+Réalisé avec R, tidymodels et Quarto
+\end{frame}
+
+
+
+\end{document}
