@@ -282,6 +282,11 @@ ggplot(prop_churn, aes(x = Churn, y = n, fill = Churn)) +
 ## Distribution des variables numériques
 
 ```{r}
+#| fig-width: 5
+#| fig-height: 3
+#| fig-align: center
+#| out-width: "80%"
+
 plot_dist_num <- data |>
   select(where(is.numeric), Churn) |>
   pivot_longer(-Churn, names_to = "Variable") |>
@@ -298,24 +303,26 @@ plot_dist_num <- data |>
     fill     = "Churn",
     colour   = "Churn"
   )
+
+plot_dist_num
 ```
 
 
-# ```{r summary-num}
-# data |>
-#   select(where(is.numeric)) |>
-#   pivot_longer(everything(), names_to = "Variable") |>
-#   group_by(Variable) |>
-#   summarise(
-#     Min     = min(value, na.rm = TRUE),
-#     Médiane = median(value, na.rm = TRUE),
-#     Moyenne = round(mean(value, na.rm = TRUE), 1),
-#     Max     = max(value, na.rm = TRUE),
-#     `E.T.`  = round(sd(value, na.rm = TRUE), 1)
-#   ) |>
-#   kable(booktabs = TRUE, align = c("l", rep("r", 5))) |>
-#   kable_styling(font_size = 8, latex_options = c("striped", "hold_position"))
-```
+<!-- # ```{r summary-num} -->
+<!-- # data |> -->
+<!-- #   select(where(is.numeric)) |> -->
+<!-- #   pivot_longer(everything(), names_to = "Variable") |> -->
+<!-- #   group_by(Variable) |> -->
+<!-- #   summarise( -->
+<!-- #     Min     = min(value, na.rm = TRUE), -->
+<!-- #     Médiane = median(value, na.rm = TRUE), -->
+<!-- #     Moyenne = round(mean(value, na.rm = TRUE), 1), -->
+<!-- #     Max     = max(value, na.rm = TRUE), -->
+<!-- #     `E.T.`  = round(sd(value, na.rm = TRUE), 1) -->
+<!-- #   ) |> -->
+<!-- #   kable(booktabs = TRUE, align = c("l", rep("r", 5))) |> -->
+<!-- #   kable_styling(font_size = 8, latex_options = c("striped", "hold_position")) -->
+<!-- ``` -->
 
 
 
