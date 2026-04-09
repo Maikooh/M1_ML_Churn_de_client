@@ -100,7 +100,7 @@ plot_prob_distribution <- test_predictions |>
     subtitle = "Ligne pointillée = seuil de classification (0.5)",
     x        = "P(Churn = Yes)",
     y        = "Nombre d'observations",
-    fill     = "Churn réel"
+    fill     = "Churn prédit"
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.title = element_text(face = "bold"), legend.position = "top")

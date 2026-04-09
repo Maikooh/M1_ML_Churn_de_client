@@ -210,8 +210,15 @@ vars_cat <- data |>
 plot_cat_churn <- data |>
   select(all_of(vars_cat), Churn) |>
   pivot_longer(-Churn,
-    names_to = "Variable", values_to = "Modalite",
-    values_transform = as.character
+               names_to = "Variable", values_to = "Modalite",
+               values_transform = as.character
+  ) |>
+  mutate(
+    Modalite = case_when(
+      Variable == "Charge  Amount" ~ factor(Modalite, levels = as.character(0:10)),
+      Variable == "Age Group" ~ factor(Modalite, levels = as.character(1:5)),
+      TRUE ~ factor(Modalite)
+    )
   ) |>
   group_by(Variable, Modalite, Churn) |>
   summarise(n = n(), .groups = "drop") |>
@@ -229,8 +236,7 @@ plot_cat_churn <- data |>
     y        = "Proportion (%)",
     fill     = "Churn"
   ) +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 8))
-
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 8))
 
 # ── Nettoyage de l'environnement ─────────────────────────────────────────────
 

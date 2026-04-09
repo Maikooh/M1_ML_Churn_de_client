@@ -96,7 +96,7 @@ plot_benchmark_roc <- benchmark_results |>
   scale_x_continuous(labels = scales::label_percent()) +
   labs(
     title    = "Classement des modèles par ROC AUC",
-    subtitle = "Moyenne ± IC 95 % sur 10 folds de validation croisée",
+    subtitle = "Moyenne ± 1,96 × erreur standard sur 10 folds de validation croisée",
     x        = "ROC AUC",
     y        = NULL
   ) +

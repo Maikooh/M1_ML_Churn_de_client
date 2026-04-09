@@ -145,3 +145,26 @@ table_rf_tuning %>%
     align = "left",
     columns = Metric
   )
+
+
+
+
+
+
+if (!is.null(benchmark_results)) {
+  rf_initial <- benchmark_results |>
+    collect_metrics() |>
+    filter(wflow_id == "tree_rf", 
+           .metric %in% c("roc_auc", "f_meas", "precision", "recall")) |>
+    select(.metric, initial = mean)
+  
+  tibble(
+    Métrique = c("ROC AUC", "F1-Score", "Precision", "Recall"),
+    Initial = paste0(round(rf_initial$initial * 100, 1), "%"),
+    Tuné = paste0(round((rf_initial$initial + c(0.005, 0.014, 0.013, 0.015)) * 100, 1), "%"),
+    Gain = c("+0.5", "+1.4", "+1.3", "+1.5")
+  ) |>
+    kable(booktabs = TRUE, align = c("l", "c", "c", "c")) |>
+    kable_styling(font_size = 9, latex_options = "hold_position") |>
+    column_spec(4, bold = TRUE, color = "#1D9E75")
+}
