@@ -1,19 +1,22 @@
 # Ce fichier définit les spécifications des modèles pour le benchmark initial.
-# Les modèles sont organisés en trois familles :
+# Les modèles sont organisés en quatre familles :
 #   1. Baseline          : régression logistique (pour référence)
 #   2. Arbres et ensemble : Decision Tree, Bagging, Random Forest, XGBoost
 #   3. Distance          : KNN, SVM linéaire, SVM RBF
+#   4. Discriminant      : LDA, QDA
 #
 # Aucun hyperparamètre n'est marqué tune() ici : ce fichier sert au benchmark
 # initial avec des valeurs par défaut raisonnées. Les spécifications de tuning
 # seront définies plus tard.
 #
-# Note sur LDA / QDA : exclus car leurs hypothèses sont incompatibles avec ce
-# jeu de données. LDA suppose la normalité multivariée et l'égalité des matrices
-# de covariance entre classes ; QDA suppose la normalité multivariée. Or
-# plusieurs variables sont binaires (Complains, Status, Tariff Plan) ou
+# Note sur LDA / QDA : inclus avec ACP, avec une
+# réserve méthodologique. LDA suppose la normalité multivariée et l'égalité des
+# matrices de covariance entre classes ; QDA suppose la normalité multivariée.
+# Or plusieurs variables sont binaires (Complains, Status, Tariff Plan) ou
 # ordinales (Age Group, Charge Amount), ce qui viole structurellement ces
-# hypothèses. Leur inclusion produirait des résultats non interprétables.
+# hypothèses. Une ACP est appliquée dans la recette pour stabiliser les calculs,
+# mais ne corrige pas la violation de normalité. Les résultats sont inclus à
+# titre de comparaison empirique.
 #
 # Prérequis : aucun objet nécessaire, fichier autonome.
 
@@ -22,7 +25,7 @@ library(kknn) # nearest_neighbor() engine
 library(ranger) # rand_forest() engine
 library(xgboost) # boost_tree() engine
 library(kernlab) # svm_rbf() et svm_linear() engine
-# Note : library(discrim) retiré — LDA et QDA exclus (cf. justification ci-dessus)
+library(discrim) # discrim_linear() et discrim_quad() engine (MASS)
 
 
 # ── 1. Baseline ──────────────────────────────────────────────────────────────
@@ -85,6 +88,26 @@ svm_rad_spec <- svm_rbf() |>
   set_mode("classification")
 
 
+# ── 4. Analyse discriminante ─────────────────────────────────────────────────
+#
+# Ces deux modèles utilisent recipe_lda_qda (normalisation + ACP).
+# L'ACP décorrèle les prédicteurs et garantit une matrice de covariance bien
+# conditionnée, ce qui évite les problèmes de singularité avec QDA.
+#
+# Réserve théorique : la normalité multivariée (hypothèse fondamentale de LDA
+# et QDA) n'est pas vérifiée — cf. commentaire en en-tête.
+
+# LDA : hypothèse d'égalité des matrices de covariance entre classes
+lda_spec <- discrim_linear() |>
+  set_engine("MASS") |>
+  set_mode("classification")
+
+# QDA : matrices de covariance distinctes par classe (plus flexible que LDA)
+qda_spec <- discrim_quad() |>
+  set_engine("MASS") |>
+  set_mode("classification")
+
+
 # ── Nettoyage de l'environnement ─────────────────────────────────────────────
 
 rm(list = setdiff(ls(), c(
@@ -96,6 +119,7 @@ rm(list = setdiff(ls(), c(
   "recipe_tree",
   "recipe_xgb",
   "recipe_distance",
+  "recipe_lda_qda",
   "logit_spec",
   "tree_spec",
   "bagging_spec",
@@ -104,6 +128,8 @@ rm(list = setdiff(ls(), c(
   "knn_spec",
   "svm_lin_spec",
   "svm_rad_spec",
+  "lda_spec",
+  "qda_spec",
   "tableau_presentation_donnees",
   "tableau_summary_num",
   "tableau_summary_cat",
@@ -114,4 +140,3 @@ rm(list = setdiff(ls(), c(
   "plot_cat_churn",
   "couleurs_churn"
 )))
-

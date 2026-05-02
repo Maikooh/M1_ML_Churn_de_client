@@ -9,7 +9,7 @@
 #
 # Objets exportés :
 #   churn_split, train_data, test_data, churn_folds
-#   recipe_tree, recipe_xgb, recipe_distance
+#   recipe_tree, recipe_xgb, recipe_distance, recipe_lda_qda
 
 library(tidymodels)
 library(themis) # step_smote(), step_smotenc()
@@ -46,6 +46,7 @@ churn_folds <- vfold_cv(train_data, v = 10, strata = Churn)
 #   XGBoost    -> dummies one-hot obligatoires (attend uniquement du numérique)
 #   Distance    -> normalisation obligatoire (KNN et SVM sont sensibles aux
 #                 échelles), dummies pour encoder les catégorielles
+#   LDA/QDA    -> normalisation + ACP pour stabilité numérique et décorrélation
 #
 # Le déséquilibre (~16 % Churn) est traité par SMOTE dans chaque recette.
 # SMOTE est toujours en dernière étape pour ne générer des observations
@@ -99,6 +100,32 @@ recipe_distance <- recipe(Churn ~ ., data = train_data) |>
   step_smote(Churn)
 
 
+# 3.4 Recipe LDA/QDA avec ACP -------------------------------------------------
+#
+# LDA/QDA supposent la normalité multivariée des prédicteurs conditionnellement
+# à Y. Cette hypothèse est structurellement violée ici par les variables
+# binaires (Complains, Status, Tariff Plan) et ordinales (Age Group, Charge
+# Amount). Les résultats sont inclus à titre de comparaison empirique, avec
+# cette réserve théorique clairement identifiée.
+#
+# L'ACP est ajoutée pour :
+#   - Décorréler les prédicteurs (matrice de covariance bien conditionnée)
+#   - Éviter les problèmes de singularité avec QDA (matrices par classe)
+#   - Réduire la dimensionnalité (threshold = 0.95 conserve 95 % de la variance)
+#
+# Note : l'ACP NE corrige PAS la violation de normalité — les composantes
+# principales héritent de la non-normalité des variables d'origine.
+
+recipe_lda_qda <- recipe(Churn ~ ., data = train_data) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_dummy(all_nominal_predictors()) |>
+  step_zv(all_predictors()) |>
+  step_normalize(all_numeric_predictors()) |>
+  step_pca(all_numeric_predictors(), threshold = 0.95) |>
+  step_smote(Churn)
+
+
 # ── 4. Vérification des recettes (optionnel) ─────────────────────────────────
 #
 # Mettre affichage_des_verifs <- TRUE pour inspecter les recettes préparées.
@@ -128,6 +155,21 @@ if (affichage_des_verifs) {
     juice() |>
     summarise(across(where(is.numeric), list(moy = mean, sd = sd))) |>
     glimpse()
+
+  # 4.4 recipe_lda_qda : vérifier le nombre de composantes principales
+  #     retenues et que Churn est rééquilibré
+  recipe_lda_qda |>
+    prep() |>
+    juice() |>
+    select(starts_with("PC")) |>
+    ncol() |>
+    paste("composantes principales retenues") |>
+    message()
+
+  recipe_lda_qda |>
+    prep() |>
+    juice() |>
+    count(Churn)
 }
 
 
@@ -142,6 +184,7 @@ rm(list = setdiff(ls(), c(
   "recipe_tree",
   "recipe_xgb",
   "recipe_distance",
+  "recipe_lda_qda",
   "tableau_presentation_donnees",
   "tableau_summary_num",
   "tableau_summary_cat",

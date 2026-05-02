@@ -34,3 +34,6 @@ Presentation_files/
 
 #Presentation cache
 Presentation_cache/
+
+#Pdf files
+.pdf

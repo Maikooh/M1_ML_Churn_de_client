@@ -23,18 +23,21 @@ if (!exists("benchmark_results")) {
 # Palette commune pour les modèles — cohérence visuelle entre tous les graphiques
 modeles <- c(
   "xgb_xgb", "tree_rf", "tree_bag", "tree_dt",
-  "dist_logit", "dist_knn", "dist_svm_lin", "dist_svm_rad"
+  "dist_logit", "dist_knn", "dist_svm_lin", "dist_svm_rad",
+  "discrim_lda", "discrim_qda"
 )
 
 palette_modeles <- c(
-  "xgb_xgb" = "#E24B4A",
-  "tree_rf" = "#378ADD",
-  "tree_bag" = "#1D9E75",
-  "tree_dt" = "#BA7517",
-  "dist_logit" = "#7F77DD",
-  "dist_knn" = "#D85A30",
+  "xgb_xgb"      = "#E24B4A",
+  "tree_rf"      = "#378ADD",
+  "tree_bag"     = "#1D9E75",
+  "tree_dt"      = "#BA7517",
+  "dist_logit"   = "#7F77DD",
+  "dist_knn"     = "#D85A30",
   "dist_svm_lin" = "#888780",
-  "dist_svm_rad" = "#D4537E"
+  "dist_svm_rad" = "#D4537E",
+  "discrim_lda"  = "#6B8E23",
+  "discrim_qda"  = "#20B2AA"
 )
 
 
@@ -204,7 +207,7 @@ plot_conf_matrices <- predictions_cv |>
   ggplot(aes(x = truth_class, y = pred_class, fill = value)) +
   geom_tile(colour = "white") +
   geom_text(aes(label = value), size = 3, fontface = "bold", colour = "white") +
-  facet_wrap(~wflow_id, ncol = 4) +
+  facet_wrap(~wflow_id, ncol = 5) +
   scale_fill_gradient(low = "#B5D4F4", high = "#185FA5", name = "Effectif") +
   labs(
     title    = "Matrices de confusion agrégées (10 folds)",
@@ -231,6 +234,7 @@ rm(list = setdiff(ls(), c(
   "recipe_tree",
   "recipe_xgb",
   "recipe_distance",
+  "recipe_lda_qda",
   "logit_spec",
   "tree_spec",
   "bagging_spec",
@@ -239,6 +243,8 @@ rm(list = setdiff(ls(), c(
   "knn_spec",
   "svm_lin_spec",
   "svm_rad_spec",
+  "lda_spec",
+  "qda_spec",
   "all_workflows",
   "churn_metrics",
   "benchmark_results",
