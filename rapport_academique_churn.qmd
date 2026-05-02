@@ -618,125 +618,48 @@ expérimentées identifient empiriquement.
 
 ## Synthèse des résultats
 
-Les résultats de cette étude permettent de dégager plusieurs conclusions
-structurantes.
+Les résultats de cette étude permettent de dégager quatre conclusions structurantes.
 
-**Supériorité des méthodes ensemblistes** : la forêt aléatoire, XGBoost
-et le bagging surpassent systématiquement les méthodes linéaires et
-paramétriques, sur l'ensemble des métriques et des protocoles
-d'évaluation. Cette supériorité s'explique par leur capacité à modéliser
-des interactions complexes et des non-linéarités dans les données, qui
-semblent caractéristiques du comportement de churn télécom.
+**Supériorité des méthodes ensemblistes** : la forêt aléatoire, XGBoost et le bagging surpassent systématiquement les méthodes linéaires et paramétriques sur l'ensemble des métriques et protocoles d'évaluation. Cette supériorité s'explique par leur capacité à modéliser des interactions complexes et des non-linéarités caractéristiques du comportement de churn télécom.
 
-**Gain modéré du tuning** : l'optimisation des hyperparamètres apporte
-un gain mesurable mais inégalement distribué. Les méthodes ensemblistes
-bénéficient moins du tuning --- leurs paramètres par défaut sont déjà
-bien calibrés --- tandis que les SVM et KNN montrent une amélioration
-plus sensible, confirmant leur plus grande sensibilité aux
-hyperparamètres.
+**Gain modéré du tuning** : l'optimisation des hyperparamètres apporte un gain mesurable mais inégalement distribué. Les méthodes ensemblistes en bénéficient peu — leurs paramètres par défaut sont déjà bien calibrés — tandis que les SVM et KNN montrent une amélioration plus sensible, confirmant leur plus grande sensibilité à ce type d'ajustement.
 
-**Généralisation validée** : la comparaison validation croisée vs. test
-ne révèle pas de surapprentissage majeur. Cette observation valide le
-protocole méthodologique adopté : stratification, SMOTE limité aux plis
-d'entraînement, ensemble de test strictement isolé.
+**Généralisation validée** : la comparaison validation croisée vs. test ne révèle pas de surapprentissage majeur, ce qui valide le protocole adopté : stratification, SMOTE limité aux plis d'entraînement, ensemble de test strictement isolé.
 
-**Importance des variables** : les prédicteurs les plus discriminants
-identifiés sont cohérents avec les connaissances sectorielles : le
-statut du compte, les réclamations, la durée et la fréquence
-d'utilisation sont systématiquement parmi les variables les plus
-prédictives du churn dans la littérature télécom.
+**Importance des variables** : les prédicteurs les plus discriminants sont cohérents avec les connaissances sectorielles — statut du compte, réclamations, durée et fréquence d'utilisation — confirmant la pertinence métier du modèle.
 
 ## Limites méthodologiques
 
-**Violation des hypothèses LDA/QDA** : Les méthodes discriminantes
-supposent la normalité multivariée des prédicteurs dans chaque classe.
-Plusieurs variables sont binaires (*Complains*, *Status*, *Tariff Plan*)
-ou ordinales (*Age Group*, *Charge Amount*), violant cette hypothèse. La
-QDA, en particulier, requiert l'estimation d'une matrice de covariance
-par classe, potentiellement instable avec peu d'observations de la
-classe minoritaire. L'ACP en prétraitement atténue partiellement ces
-problèmes.
+**Violation des hypothèses LDA/QDA** : les méthodes discriminantes supposent la normalité multivariée des prédicteurs dans chaque classe. Plusieurs variables sont binaires (*Complains*, *Status*, *Tariff Plan*) ou ordinales (*Age Group*, *Charge Amount*), ce qui viole structurellement cette hypothèse. L'ACP en prétraitement atténue partiellement ce problème.
 
-**Biais du SMOTE** : SMOTE génère des observations synthétiques par
-interpolation linéaire dans l'espace des voisins proches, supposant une
-distribution continue des prédicteurs. La variante SMOTENC (*Nominal and
-Continuous*), utilisée pour les recettes à base d'arbres, traite
-séparément les variables nominales et continues, atténuant ce biais.
+**Biais du SMOTE** : SMOTE génère des observations synthétiques par interpolation linéaire, supposant une distribution continue des prédicteurs. La variante SMOTENC, utilisée pour les recettes à base d'arbres, traite séparément les variables nominales et continues, atténuant ce biais.
 
-**Absence de régularisation pour la régression logistique** : Le modèle
-logistique utilisé comme référence ne comprend pas de régularisation
-$L_1$ (*Lasso*) ou $L_2$ (*Ridge*). Pour des prédicteurs colinéaires,
-cela peut conduire à une instabilité des estimateurs et sous-estimer le
-potentiel de ce modèle dans un contexte de déploiement.
+**Absence de régularisation pour la régression logistique** : le modèle de référence ne comprend pas de régularisation $L_1$ ou $L_2$, ce qui peut conduire à une instabilité des estimateurs en présence de colinéarité et sous-estimer son potentiel en déploiement.
 
-**Limitations du jeu de données** : L'Iranian Churn Dataset ne contient
-pas d'information sur le type d'appareil, la localisation géographique,
-l'historique des interactions avec le service client ni la satisfaction
-mesurée. La période de collecte (12 mois) ne permet pas de modéliser la
-dynamique temporelle du comportement client.
+**Limitations du jeu de données** : l'Iranian Churn Dataset ne contient pas d'information sur le type d'appareil, la localisation géographique ni la satisfaction client. La période de collecte (12 mois) ne permet pas de modéliser la dynamique temporelle du comportement client.
 
-**Généralisation géographique** : Le jeu de données étant spécifique à
-un opérateur iranien, les résultats et importances de variables
-pourraient différer pour d'autres marchés ou périodes, en raison de
-spécificités réglementaires, concurrentielles ou comportementales.
+**Généralisation géographique** : le jeu de données étant spécifique à un opérateur iranien, les résultats pourraient différer pour d'autres marchés en raison de spécificités réglementaires, concurrentielles ou comportementales.
 
 ## Perspectives d'amélioration
 
-Plusieurs pistes d'amélioration pourraient être explorées dans des
-travaux ultérieurs :
+Plusieurs pistes pourraient être explorées dans des travaux ultérieurs :
 
-1.  **Stacking (super-learner)** : Combiner les prédictions de plusieurs
-    modèles par méta-apprentissage pour réduire simultanément le biais
-    et la variance.
-2.  **Régression logistique pénalisée** (*Elastic Net*) : Ajouter une
-    régularisation pour produire un modèle *sparse* et interprétable,
-    potentiellement compétitif pour le déploiement en production.
-3.  **Optimisation du seuil de décision** : Adapter le seuil de
-    classification selon les coûts métier asymétriques des erreurs de
-    type I et II, via une analyse coût-bénéfice calibrée sur les données
-    de l'opérateur.
-4.  **Méthodes d'interprétabilité locale** : Appliquer SHAP (*SHapley
-    Additive exPlanations*) pour expliquer les prédictions individuelles
-    et identifier les facteurs de risque propres à chaque client,
-    rendant le modèle actionnable pour les équipes de rétention.
-5.  **Modèles de survie** : Si des données longitudinales sont
-    disponibles, une approche par modèles de survie (Cox, forêt de
-    survie) permettrait de modéliser non seulement le risque de churn
-    mais aussi son horizon temporel prévisible.
-6.  **Validation externe** : Évaluer la robustesse des conclusions sur
-    un jeu de données issu d'un autre opérateur ou d'une autre période
-    pour tester la généralisation inter-domaines.
+1. **Stacking (super-learner)** : combiner les prédictions de plusieurs modèles par méta-apprentissage pour réduire simultanément le biais et la variance.
+2. **Régression logistique pénalisée** (*Elastic Net*) : ajouter une régularisation pour produire un modèle *sparse* et interprétable, potentiellement compétitif en production.
+3. **Optimisation du seuil de décision** : adapter le seuil selon les coûts métier asymétriques des erreurs de type I et II, via une analyse coût-bénéfice calibrée sur les données de l'opérateur.
+4. **Interprétabilité locale** : appliquer SHAP pour expliquer les prédictions individuelles et identifier les facteurs de risque propres à chaque client.
+5. **Modèles de survie** : si des données longitudinales sont disponibles, une approche par modèles de survie (Cox, forêt de survie) permettrait de modéliser l'horizon temporel du churn.
+6. **Validation externe** : évaluer la robustesse des conclusions sur un jeu de données issu d'un autre opérateur ou d'une autre période.
 
 \newpage
 
 # Conclusion
 
-Cette étude présente une analyse comparative rigoureuse de dix
-algorithmes de classification supervisée pour la prédiction du churn
-client dans le secteur des télécommunications, conduite sur l'Iranian
-Churn Dataset (3 150 observations, 13 prédicteurs, \~16 % de churners).
-La méthodologie adoptée --- partitionnement stratifié 80/20, quatre
-recettes de prétraitement spécialisées, SMOTE anti-fuite intégré en
-dernière étape de chaque recette, validation croisée stratifiée à 10
-plis, et optimisation par Latin Hypercube combiné à la course ANOVA ---
-respecte les standards actuels du *machine learning* supervisé et
-garantit des estimations de performance robustes et non biaisées.
+Cette étude présente une comparaison rigoureuse de dix algorithmes de classification supervisée pour la prédiction du churn client, conduite sur l'Iranian Churn Dataset (3 150 observations, 13 prédicteurs, ~16 % de churners). La méthodologie adoptée — partitionnement stratifié 80/20, quatre recettes de prétraitement spécialisées, SMOTE anti-fuite, validation croisée stratifiée à 10 plis et optimisation par Latin Hypercube combiné à la course ANOVA — respecte les standards actuels du *machine learning* supervisé et garantit des estimations robustes et non biaisées.
 
-Les résultats confirment la **supériorité des méthodes ensemblistes**
-(XGBoost, forêt aléatoire, bagging) pour cette tâche de classification
-déséquilibrée, tant en termes de ROC AUC que de F1-score. L'évaluation
-finale sur le jeu de test indépendant valide la capacité de
-généralisation du modèle sélectionné, sans surapprentissage significatif
-détecté. L'analyse d'importance des variables identifie les signaux les
-plus prédictifs du churn, offrant des *insights* directement
-actionnables pour les stratégies de rétention client.
+Les résultats confirment la **supériorité des méthodes ensemblistes** (XGBoost, forêt aléatoire, bagging) pour cette tâche de classification déséquilibrée, tant en ROC AUC qu'en F1-score. L'évaluation finale sur le jeu de test indépendant valide la généralisation du modèle sélectionné, sans surapprentissage significatif détecté. L'analyse d'importance des variables identifie les signaux les plus prédictifs du churn et offre des *insights* directement actionnables pour les stratégies de rétention.
 
-Sur le plan académique, ce projet illustre la puissance du cadre
-*tidymodels* pour la mise en place de pipelines de *machine learning*
-reproductibles, modulaires et extensibles. L'approche par `workflow_set`
-permet une comparaison simultanée et transparente de multiples
-combinaisons algorithme-prétraitement, réduisant les risques d'erreurs
-de protocole et facilitant la reproductibilité des résultats.
+Sur le plan académique, ce projet illustre la pertinence du cadre *tidymodels* pour construire des pipelines reproductibles et modulaires. L'approche par `workflow_set` permet une comparaison simultanée et transparente de multiples combinaisons algorithme-prétraitement, réduisant les risques d'erreurs de protocole et facilitant la reproductibilité des résultats.
 
 \newpage
 
