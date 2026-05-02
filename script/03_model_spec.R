@@ -33,9 +33,10 @@ library(discrim) # discrim_linear() et discrim_quad() engine (MASS)
 # La régression logistique est la référence minimale de tout benchmark de
 # classification binaire. Si un modèle plus complexe ne la surpasse pas
 # clairement, sa complexité supplémentaire n'est pas justifiée.
-# penalty = 0 : pas de régularisation pour le benchmark initial.
+# Engine "glm" : pas de régularisation (stats::glm). Le paramètre penalty
+# n'est pas supporté par cet engine et serait silencieusement ignoré.
 
-logit_spec <- logistic_reg(penalty = 0) |>
+logit_spec <- logistic_reg() |>
   set_engine("glm") |>
   set_mode("classification")
 

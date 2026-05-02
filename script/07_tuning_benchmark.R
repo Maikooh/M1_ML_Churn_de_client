@@ -232,13 +232,15 @@ grid_rf <- grid_latin_hypercube(
 
 # 3.2 XGBoost
 # Note : mtry = nombre de colonnes à échantillonner par arbre.
-# Après one-hot encoding des 5 facteurs binaires : ~18 colonnes.
-# Range [5, 18] pour explorer de 30% à 100% des features.
+# Après one-hot (one_hot = TRUE) sur les 5 facteurs + step_zv() :
+#   8 numériques + Complains(2) + Charge Amount(11) + Age Group(5)
+#   + Tariff Plan(2) + Status(2) = ~30 colonnes.
+# Range [5, 18] couvre de ~17% à ~60% des features.
 grid_xgb <- grid_latin_hypercube(
   trees(range = c(100L, 1000L)),
   learn_rate(range = c(-2, -0.5)), # log10 scale : 0.01 à 0.3
   tree_depth(range = c(3L, 10L)),
-  mtry(range = c(5L, 18L)), # nombre de colonnes (après one-hot)
+  mtry(range = c(5L, 18L)), # nombre de colonnes (après one-hot, ~30 total)
   min_n(range = c(2L, 20L)),
   loss_reduction(range = c(0, 5)), # gamma
   size = 30
@@ -443,15 +445,22 @@ plot_tuning_results <- tuning_results |>
 # 8. TABLEAU RÉCAPITULATIF DES MEILLEURS HYPERPARAMÈTRES
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Affichage console des meilleurs paramètres
-message("\n", strrep("═", 60))
-message("MEILLEURS HYPERPARAMÈTRES PAR MODÈLE")
-message(strrep("═", 60), "\n")
+# Mettre affichage_best_params <- TRUE pour afficher en console lors d'une
+# exécution interactive. Laisser FALSE en mode sourcing (rapport Quarto) pour
+# éviter des messages parasites dans la sortie du document.
 
-for (model_name in names(best_params_detail)) {
-  message("▸ ", model_name)
-  print(best_params_detail[[model_name]])
-  message("")
+affichage_best_params <- FALSE
+
+if (affichage_best_params) {
+  message("\n", strrep("═", 60))
+  message("MEILLEURS HYPERPARAMÈTRES PAR MODÈLE")
+  message(strrep("═", 60), "\n")
+
+  for (model_name in names(best_params_detail)) {
+    message("▸ ", model_name)
+    print(best_params_detail[[model_name]])
+    message("")
+  }
 }
 
 

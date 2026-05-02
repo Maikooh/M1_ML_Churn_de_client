@@ -211,9 +211,26 @@ plot_tuning_ranking <- tuning_results |>
 # 4. COURBES ROC COMPARATIVES
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Collecter les prédictions de la meilleure config par modèle
-predictions_tuning <- tuning_results |>
-  collect_predictions(select_best = TRUE)
+# Collecter les prédictions de la meilleure config par modèle.
+# tuning_results est un bind_rows() de tune_results ET resample_results.
+# collect_predictions(select_best = TRUE) n'est défini que pour tune_results ;
+# appelé sur des resample_results, son comportement peut varier selon la
+# version de {tune}. On sépare donc explicitement les deux cas.
+
+modeles_tunes <- c(
+  "tree_rf", "tree_dt", "xgb_xgb",
+  "dist_knn", "dist_svm_lin", "dist_svm_rad"
+)
+modeles_fixes <- c("tree_bag", "dist_logit", "discrim_lda", "discrim_qda")
+
+predictions_tuning <- bind_rows(
+  tuning_results |>
+    filter(wflow_id %in% modeles_tunes) |>
+    collect_predictions(select_best = TRUE),
+  tuning_results |>
+    filter(wflow_id %in% modeles_fixes) |>
+    collect_predictions()
+)
 
 plot_tuning_roc <- predictions_tuning |>
   group_by(wflow_id) |>

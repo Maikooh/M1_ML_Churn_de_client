@@ -1,0 +1,279 @@
+---
+title: "Churn Télécom — Résultats complets"
+subtitle: "Iranian Churn Dataset · Classification supervisée · tidymodels"
+date: today
+date-format: "D MMMM YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Sommaire"
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Voir le code"
+    theme: cosmo
+    fontsize: 0.92em
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+# ── Packages ──────────────────────────────────────────────────────────────────
+library(tidymodels)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(themis)
+library(kknn)
+library(ranger)
+library(xgboost)
+library(kernlab)
+library(discrim)
+library(finetune)
+library(patchwork)
+library(vip)
+
+# ── Scripts 00 → 04 (pas de modélisation, très rapides) ───────────────────────
+source("script/00_presentation_des_donnees.R")
+source("script/01_analyse_exploratoire.R")
+source("script/02_echantillon_et_recipe.R")
+source("script/03_model_spec.R")
+source("script/04_workflow.R")
+
+# ── Options yardstick ─────────────────────────────────────────────────────────
+options(yardstick.event_first = FALSE)
+churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
+
+# ── Résultats pré-calculés (chargés depuis .rds — pas de recalcul) ────────────
+benchmark_results <- readRDS("data/benchmark_results_churn.rds")
+tuning_results    <- readRDS("data/tuning_results_churn.rds")
+```
+
+# Données
+
+## Dictionnaire des variables
+
+```{r}
+tableau_presentation_donnees
+```
+
+## Déséquilibre de la variable cible
+
+```{r}
+#| fig-height: 4
+#| fig-width: 5
+plot_desequilibre
+```
+
+La classe minoritaire (Churn = Yes) représente **~16 %** des observations.
+Ce déséquilibre justifie l'usage de SMOTE dans les recettes et le choix
+du **ROC AUC** comme métrique principale (l'accuracy serait trompeuse).
+
+## Statistiques descriptives
+
+::: {.panel-tabset}
+
+### Variables numériques
+
+```{r}
+tableau_summary_num
+```
+
+### Variables catégorielles
+
+```{r}
+tableau_summary_cat
+```
+
+:::
+
+---
+
+# Analyse exploratoire
+
+## Distributions par classe Churn
+
+```{r}
+#| fig-height: 9
+plot_dist_num
+```
+
+## Boxplots par classe Churn
+
+```{r}
+#| fig-height: 9
+plot_boxplot_churn
+```
+
+## Matrice de corrélation
+
+```{r}
+#| fig-height: 6
+#| fig-width: 8
+plot_correlation
+```
+
+## Taux de churn par variable catégorielle
+
+```{r}
+#| fig-height: 5
+plot_cat_churn
+```
+
+---
+
+# Benchmark initial
+
+> Évaluation par validation croisée 10-folds des modèles avec hyperparamètres
+> par défaut. Objectif : établir un classement de référence avant tuning.
+
+```{r benchmark-viz}
+#| include: false
+# Génère tous les objets de visualisation du benchmark
+# (rm() interne conserve benchmark_results + objets 00-01)
+source("script/06_comparaison_benchmark.R")
+```
+
+## Métriques par modèle
+
+```{r}
+tableau_metriques
+```
+
+## Classement par ROC AUC
+
+```{r}
+#| fig-height: 5
+#| fig-width: 9
+plot_benchmark_roc
+```
+
+## Courbes ROC comparatives
+
+```{r}
+#| fig-height: 5
+#| fig-width: 10
+plot_roc_curves
+```
+
+## Heatmap des métriques
+
+```{r}
+#| fig-height: 5
+#| fig-width: 9
+plot_metrics_heatmap
+```
+
+## Matrices de confusion agrégées (10 folds)
+
+```{r}
+#| fig-height: 6
+#| fig-width: 13
+plot_conf_matrices
+```
+
+---
+
+# Tuning des hyperparamètres
+
+> Stratégie : Latin Hypercube Sampling + `tune_race_anova()` (élimination
+> précoce des configurations peu prometteuses). Modèles tunés : RF, XGBoost,
+> KNN, SVM linéaire, SVM RBF, Decision Tree.
+
+```{r tuning-viz}
+#| include: false
+# rm() interne de script 08 supprime les objets benchmark (déjà affichés)
+# et recharge tuning_results depuis .rds si nécessaire
+source("script/08_comparaison_tuning_benchmark.R")
+```
+
+## Métriques après tuning
+
+```{r}
+tableau_tuning_metrics
+```
+
+## Tableau des meilleurs hyperparamètres
+
+```{r}
+tableau_best_params
+```
+
+## Vue synthétique (dashboard)
+
+```{r}
+#| fig-height: 11
+#| fig-width: 13
+plot_dashboard_tuning
+```
+
+## Distribution des ROC AUC pendant le tuning
+
+```{r}
+#| fig-height: 5
+#| fig-width: 10
+plot_tuning_evolution
+```
+
+## Matrices de confusion après tuning
+
+```{r}
+#| fig-height: 6
+#| fig-width: 13
+plot_tuning_conf_matrices
+```
+
+---
+
+# Évaluation finale (test set)
+
+> `last_fit()` : entraîne le meilleur modèle sur **tout le train set**,
+> évalue sur le **test set** (données jamais vues lors du CV ni du tuning).
+> C'est la seule évaluation sur données vraiment inédites.
+
+```{r final-viz}
+#| include: false
+# rm() interne de script 09 supprime les objets tuning (déjà affichés)
+source("script/09_evaluation_finale.R")
+```
+
+## Comparaison CV vs test (surapprentissage)
+
+```{r}
+tableau_cv_vs_test
+```
+
+Un écart négatif (test < CV) signale un surapprentissage résiduel.
+Un écart nul ou positif est acceptable.
+
+## Métriques finales sur le test set
+
+```{r}
+tableau_final_metrics
+```
+
+## Courbe ROC et matrice de confusion
+
+```{r}
+#| layout-ncol: 2
+#| fig-height: 5
+plot_final_roc
+plot_final_conf_mat
+```
+
+## Importance des variables
+
+```{r}
+#| fig-height: 7
+#| fig-width: 9
+if (!is.null(plot_vip)) {
+  plot_vip
+} else {
+  message("Importance des variables non disponible pour ce type de modèle.")
+}
+```

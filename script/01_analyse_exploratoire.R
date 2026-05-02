@@ -162,12 +162,15 @@ cor_matrix <- data |>
   select(where(is.numeric)) |>
   cor(use = "pairwise.complete.obs", method = "pearson")
 
+var_ordre <- rownames(cor_matrix)
+
 cor_long <- cor_matrix |>
   as.data.frame() |>
   rownames_to_column("Var1") |>
   pivot_longer(-Var1, names_to = "Var2", values_to = "r") |>
-  # Conserver uniquement le triangle inférieur pour éviter la redondance
-  filter(Var1 >= Var2)
+  # Triangle inférieur par position dans la matrice (comparaison positionnelle,
+  # pas lexicographique — évite les artefacts si les noms ne sont pas triés).
+  filter(match(Var1, var_ordre) >= match(Var2, var_ordre))
 
 plot_correlation <- ggplot(cor_long, aes(x = Var1, y = Var2, fill = r)) +
   geom_tile(colour = "white", linewidth = 0.4) +

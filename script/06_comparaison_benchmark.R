@@ -185,33 +185,40 @@ plot_metrics_heatmap <- metriques_long |>
 # Matrices construites sur l'ensemble des prédictions CV agrégées.
 # Révèle le type d'erreurs dominant : faux positifs (churn prédit à tort)
 # vs faux négatifs (churn non détecté — souvent plus coûteux).
+#
+# Note technique : tidy.conf_mat() retourne les cellules sous la forme
+# "cell_R_C" où R = indice ligne (prédit) et C = indice colonne (réel),
+# dans l'ordre colonne-major : (1,1), (2,1), (1,2), (2,2).
+# Les niveaux de Churn étant c("No", "Yes"), l'indice 1 = "No", 2 = "Yes".
 
 plot_conf_matrices <- predictions_cv |>
   group_by(wflow_id) |>
   conf_mat(truth = Churn, estimate = .pred_class) |>
   mutate(tidied = map(conf_mat, tidy)) |>
   unnest(tidied) |>
-  separate(name, into = c("Predicted", "Truth"), sep = "_") |>
+  # "cell_R_C" → 3 morceaux : préfixe "cell", indice ligne, indice colonne
+  separate(name, into = c("prefix", "pred_idx", "truth_idx"), sep = "_") |>
   mutate(
-    Predicted = factor(Predicted, levels = c("Cell1", "Cell2", "Cell3", "Cell4")),
-    label = paste0(
-      c("VN", "FP", "FN", "VP")[as.integer(Predicted)],
-      "\n", value
+    pred_class  = c("No", "Yes")[as.integer(pred_idx)],
+    truth_class = c("No", "Yes")[as.integer(truth_idx)],
+    cell_type   = case_when(
+      pred_class == "No"  & truth_class == "No"  ~ "VN",
+      pred_class == "Yes" & truth_class == "No"  ~ "FP",
+      pred_class == "No"  & truth_class == "Yes" ~ "FN",
+      pred_class == "Yes" & truth_class == "Yes" ~ "VP"
     )
-  ) |>
-  # Reconstitution des coordonnées de la matrice 2x2
-  mutate(
-    pred_class  = rep(c("No", "No", "Yes", "Yes"), length.out = n()),
-    truth_class = rep(c("No", "Yes", "No", "Yes"), length.out = n())
   ) |>
   ggplot(aes(x = truth_class, y = pred_class, fill = value)) +
   geom_tile(colour = "white") +
-  geom_text(aes(label = value), size = 3, fontface = "bold", colour = "white") +
+  geom_text(
+    aes(label = paste0(cell_type, "\n", value)),
+    size = 3, fontface = "bold", colour = "white"
+  ) +
   facet_wrap(~wflow_id, ncol = 5) +
   scale_fill_gradient(low = "#B5D4F4", high = "#185FA5", name = "Effectif") +
   labs(
     title    = "Matrices de confusion agrégées (10 folds)",
-    subtitle = "Lignes = Prédit | Colonnes = Réel",
+    subtitle = "Lignes = Prédit | Colonnes = Réel | VN/VP = correct, FN/FP = erreur",
     x        = "Churn réel",
     y        = "Churn prédit"
   ) +
