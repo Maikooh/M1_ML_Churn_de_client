@@ -2,8 +2,7 @@ library(tidyverse)
 library(knitr)
 library(kableExtra)
 
-# ── Chargement et encodage des variables ─────────────────────────────────────
-
+# Chargement et encodage des variables
 data <- read.csv("data/Customer Churn.csv", check.names = FALSE) |>
   mutate(
     Churn            = factor(Churn, levels = c(0, 1), labels = c("No", "Yes")),
@@ -14,16 +13,13 @@ data <- read.csv("data/Customer Churn.csv", check.names = FALSE) |>
     Status           = factor(Status, levels = c(1, 2), labels = c("Actif", "Inactif"))
   )
 
-
-# ── Dictionnaire des variables ───────────────────────────────────────────────
-
-# str_squish() retire les espaces multiples dans les noms (ex. "Call  Failure")
+# Dictionnaire des variables
+# str_squish() retire les espaces multiples dans les noms
+# class() retourne c("ordered", "factor") pour les facteurs ordonnés
 noms_formates <- names(data) |>
   str_squish() |>
   str_to_title()
 
-# FIX : class() retourne c("ordered", "factor") pour les facteurs ordonnés.
-# On construit un label lisible et sans ambiguïté.
 types_colonnes <- sapply(data, \(x) {
   if (is.ordered(x)) {
     "Facteur ordonné"
@@ -57,14 +53,12 @@ descriptions <- c(
 
 dictionnaire <- data.frame(
   `Nom de la variable` = noms_formates,
-  `Type` = types_colonnes,
-  `Description` = descriptions,
-  check.names = FALSE
+  `Type`               = types_colonnes,
+  `Description`        = descriptions,
+  check.names          = FALSE
 )
 
-
-# ── Tableau final ─────────────────────────────────────────────────────────────
-
+# Tableau final
 tableau_presentation_donnees <- kable(
   dictionnaire,
   caption   = "Dictionnaire des variables du jeu de données",

@@ -1,10 +1,8 @@
-#Ce script réalise le tuning du modèle random forest
-
-# en suivant les recommendations
-# de la documentation : https://www.tmwr.org/pre-proc-table.html
-
 library(tidymodels)
 library(ranger)
+library(knitr)
+library(kableExtra)
+
 
 # ── 0. Sourcing ──────────────────────────────────────────────────────────────
 
@@ -12,159 +10,100 @@ source("script/00_presentation_des_donnees.R")
 source("script/02_echantillon_et_recipe.R")
 
 options(yardstick.event_first = FALSE)
-
 churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
 
-# ── 1. Recipe RF : conforme TMWR ─────────────────────────────────────────────
 
-recipe_rf_opt <- recipe(Churn ~ ., data = train_data) |> 
-  step_impute_median(all_numeric_predictors()) |> 
-  step_impute_mode(all_nominal_predictors()) |> 
+# ── 1. Recette ───────────────────────────────────────────────────────────────
+
+recipe_rf_opt <- recipe(Churn ~ ., data = train_data) |>
+  step_impute_median(all_numeric_predictors()) |>
+  step_impute_mode(all_nominal_predictors()) |>
   step_smotenc(Churn)
 
-# ── 2. Spécification tunable RF ──────────────────────────────────────────────
 
-rf_spec_tuned <- rand_forest(mtry = 4, min_n = 11, trees = 1000) |> 
-  set_engine("ranger", importance = "permutation") |> 
+# ── 2. Spécification avec hyperparamètres optimaux ───────────────────────────
+
+rf_spec_tuned <- rand_forest(mtry = 4, min_n = 11, trees = 1000) |>
+  set_engine("ranger", importance = "permutation") |>
   set_mode("classification")
+
 
 # ── 3. Workflow ──────────────────────────────────────────────────────────────
 
-rf_wf_tuned <- workflow() |> 
-  add_recipe(recipe_rf_opt) |> 
+rf_final_wf <- workflow() |>
+  add_recipe(recipe_rf_opt) |>
   add_model(rf_spec_tuned)
 
-# ── 7. Modèle final ──────────────────────────────────────────────────────────
 
-rf_final_wf <- rf_wf_tuned
+# ── 4. Évaluation finale sur le jeu de test ──────────────────────────────────
 
 rf_final_fit <- last_fit(
   rf_final_wf,
-  split = churn_split,
-  metrics = churn_metrics)
+  split   = churn_split,
+  metrics = churn_metrics
+)
 
 rf_final_metrics <- collect_metrics(rf_final_fit)
 rf_final_preds   <- collect_predictions(rf_final_fit)
 
-rf_conf_mat <- rf_final_preds |> 
+rf_conf_mat <- rf_final_preds |>
   conf_mat(truth = Churn, estimate = .pred_class)
 
-# ── 8. Importance des variables ──────────────────────────────────────────────
 
-rf_engine <- rf_final_fit |> 
-  extract_workflow() |> 
-  extract_fit_parsnip() |> 
-  pluck("fit")
+# ── 5. Importance des variables ──────────────────────────────────────────────
 
-rf_variable_importance <- tibble(
-  Variable = names(rf_engine$variable.importance),
-  Importance = unname(rf_engine$variable.importance)) |> 
+rf_variable_importance <- rf_final_fit |>
+  extract_workflow() |>
+  extract_fit_parsnip() |>
+  pluck("fit") |>
+  (\(fit) tibble(
+    Variable   = names(fit$variable.importance),
+    Importance = unname(fit$variable.importance)
+  ))() |>
   arrange(desc(Importance))
 
-# ─────────────────────────────────────────────────────────────────────────────
 
-rf_final_metrics
-rf_conf_mat
-
-# ────────── Comparaison avec rf_initiale ─────────────────────────────────────
+# ── 6. Tableau comparaison CV vs test ────────────────────────────────────────
 
 benchmark_results <- readRDS("data/benchmark_results_churn.rds")
 
-rf_initial_cv <- benchmark_results |> 
-  collect_metrics() |> 
-  filter(wflow_id == "tree_rf") |> 
-  select(.metric, mean, std_err)
-
-rf_tuned_cv <- rf_tuning_results |> 
-  collect_metrics() |> 
-  filter(mtry == 4, min_n == 11) |> 
-  select(mtry, min_n, .metric, mean, std_err)
-
-
-rf_initial_cv
-
-rf_tuned_cv
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-rf_initial_cv2 <- benchmark_results |> 
-  collect_metrics() |> 
-  filter(wflow_id == "tree_rf") |> 
-  transmute(.metric, initial = mean)
-
-rf_tuned_cv2 <- rf_tuning_results |> 
-  collect_metrics() |> 
-  filter(mtry == 4, min_n == 11) |> 
-  transmute(.metric, tuned_cv = mean)
-
-rf_compare <- rf_initial_cv2 |> 
-  left_join(rf_tuned_cv2, by = ".metric") |> 
-  mutate(gain = tuned_cv - initial)
-
-rf_compare
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-rf_test <- rf_final_metrics |> 
-  select(.metric, test = .estimate)
-
-rf_compare_full <- rf_compare |> 
-  left_join(rf_test, by = ".metric")
-
-rf_compare_full
-
-
-# ────────── Tableau comparaison ─────────────────────────────────────
-
-library(gt)
-
-table_rf_tuning <- tibble(
-  Metric = c("ROC AUC", "Precision", "Recall", "F1", "Accuracy"),
-  `RF initial` = c(0.980, 0.976, 0.968, 0.972, 0.953),
-  `RF tuné CV` = c(0.984, 0.984, 0.968, 0.976, 0.960),
-  `RF test`    = c(0.993, 0.990, 0.968, 0.979, 0.965)
-)
-
-table_rf_tuning %>%
-  gt() %>%
-  tab_header(
-    title = md("**Comparaison des performances du Random Forest**"),
-    subtitle = "Benchmark initial, tuning en validation croisée et test final"
-  ) %>%
-  fmt_number(
-    columns = c(`RF initial`, `RF tuné CV`, `RF test`),
-    decimals = 3
-  ) %>%
-  cols_align(
-    align = "center",
-    columns = c(`RF initial`, `RF tuné CV`, `RF test`)
-  ) %>%
-  cols_align(
-    align = "left",
-    columns = Metric
+tableau_comparaison_rf <- benchmark_results |>
+  collect_metrics() |>
+  filter(wflow_id == "tree_rf",
+         .metric %in% c("roc_auc", "f_meas", "precision", "recall", "accuracy")) |>
+  transmute(.metric, cv_initial = mean) |>
+  left_join(
+    rf_final_metrics |> select(.metric, test = .estimate),
+    by = ".metric"
+  ) |>
+  mutate(across(c(cv_initial, test), \(x) paste0(round(x * 100, 2), "%"))) |>
+  rename(Métrique = .metric, `CV initial` = cv_initial, `Test final` = test) |>
+  kable(
+    booktabs = TRUE,
+    caption  = "Comparaison des performances du Random Forest : CV initial vs test final",
+    align    = c("l", "c", "c")
+  ) |>
+  kable_styling(
+    latex_options = c("striped", "hold_position"),
+    font_size     = 9
   )
 
 
+# ── Nettoyage de l'environnement ─────────────────────────────────────────────
 
-
-
-
-if (!is.null(benchmark_results)) {
-  rf_initial <- benchmark_results |>
-    collect_metrics() |>
-    filter(wflow_id == "tree_rf", 
-           .metric %in% c("roc_auc", "f_meas", "precision", "recall")) |>
-    select(.metric, initial = mean)
-  
-  tibble(
-    Métrique = c("ROC AUC", "F1-Score", "Precision", "Recall"),
-    Initial = paste0(round(rf_initial$initial * 100, 1), "%"),
-    Tuné = paste0(round((rf_initial$initial + c(0.005, 0.014, 0.013, 0.015)) * 100, 1), "%"),
-    Gain = c("+0.5", "+1.4", "+1.3", "+1.5")
-  ) |>
-    kable(booktabs = TRUE, align = c("l", "c", "c", "c")) |>
-    kable_styling(font_size = 9, latex_options = "hold_position") |>
-    column_spec(4, bold = TRUE, color = "#1D9E75")
-}
+rm(list = setdiff(ls(), c(
+  "data",
+  "churn_split", "train_data", "test_data", "churn_folds",
+  "recipe_tree", "recipe_xgb", "recipe_distance",
+  "logit_spec", "tree_spec", "bagging_spec", "rf_spec", "xgb_spec",
+  "knn_spec", "svm_lin_spec", "svm_rad_spec",
+  "all_workflows", "churn_metrics", "benchmark_results",
+  "rf_final_wf", "rf_final_fit", "rf_final_metrics",
+  "rf_final_preds", "rf_conf_mat", "rf_variable_importance",
+  "tableau_comparaison_rf",
+  "tableau_presentation_donnees",
+  "tableau_summary_num", "tableau_summary_cat",
+  "plot_desequilibre", "plot_dist_num", "plot_boxplot_churn",
+  "plot_correlation", "plot_cat_churn",
+  "couleurs_churn"
+)))
