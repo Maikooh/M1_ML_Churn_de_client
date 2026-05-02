@@ -1,6 +1,4 @@
-library(tidyverse)
-library(knitr)
-library(kableExtra)
+source("script/_utils.R")
 
 # ── Chargement et encodage des variables ─────────────────────────────────────
 

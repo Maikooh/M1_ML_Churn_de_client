@@ -146,5 +146,5 @@ rm(list = setdiff(ls(), c(
   "plot_boxplot_churn",
   "plot_correlation",
   "plot_cat_churn",
-  "couleurs_churn"
+  source("script/_utils.R")
 )))

@@ -32,15 +32,7 @@
 #   best_params         — tibble des meilleurs hyperparamètres par modèle
 #   plot_tuning_results — classement post-tuning par ROC AUC
 
-library(tidymodels)
-library(finetune) # tune_race_anova()
-library(future)
-library(doFuture)
-library(ranger)
-library(xgboost)
-library(kknn)
-library(kernlab)
-library(discrim)
+source("script/_utils.R")
 
 # Vérification silencieuse de lme4 (requis par tune_race_anova)
 if (!requireNamespace("lme4", quietly = TRUE)) {
@@ -59,9 +51,6 @@ if (exec_precedent) {
   source("script/03_model_spec.R")
   source("script/04_workflow.R")
 }
-
-options(yardstick.event_first = FALSE)
-churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

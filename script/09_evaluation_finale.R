@@ -23,10 +23,8 @@
 #   Graphiques : plot_final_roc, plot_final_conf_mat, plot_vip
 #   Modèle     : final_fit (last_fit — contient le modèle entraîné sur train)
 
-library(tidymodels)
-library(knitr)
-library(kableExtra)
-library(vip)
+# Palette et noms de modèles (cohérence visuelle avec les scripts précédents)
+source("script/_utils.R")
 
 
 # ── 0. Chargement des prérequis si nécessaire ────────────────────────────────
@@ -40,36 +38,6 @@ if (!exists("churn_split")) {
   source("script/02_echantillon_et_recipe.R")
 }
 
-options(yardstick.event_first = FALSE)
-churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
-
-# Palette et noms de modèles (cohérence visuelle avec les scripts précédents)
-palette_modeles <- c(
-  "xgb_xgb"      = "#E24B4A",
-  "tree_rf"       = "#378ADD",
-  "tree_bag"      = "#1D9E75",
-  "tree_dt"       = "#BA7517",
-  "dist_logit"    = "#7F77DD",
-  "dist_knn"      = "#D85A30",
-  "dist_svm_lin"  = "#888780",
-  "dist_svm_rad"  = "#D4537E",
-  "discrim_lda"   = "#6B8E23",
-  "discrim_qda"   = "#20B2AA"
-)
-
-noms_modeles <- c(
-  "xgb_xgb"      = "XGBoost",
-  "tree_rf"       = "Random Forest",
-  "tree_bag"      = "Bagging",
-  "tree_dt"       = "Decision Tree",
-  "dist_logit"    = "Logistic Reg.",
-  "dist_knn"      = "KNN",
-  "dist_svm_lin"  = "SVM Linéaire",
-  "dist_svm_rad"  = "SVM RBF",
-  "discrim_lda"   = "LDA",
-  "discrim_qda"   = "QDA"
-)
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. SÉLECTION ET FINALISATION DU MEILLEUR MODÈLE
@@ -81,23 +49,25 @@ best_wflow_id <- tuning_results |>
   slice_max(mean, n = 1) |>
   pull(wflow_id)
 
-message("Meilleur modèle sélectionné : ", best_wflow_id,
-        " (", noms_modeles[best_wflow_id], ")")
+message(
+  "Meilleur modèle sélectionné : ", best_wflow_id,
+  " (", noms_modeles[best_wflow_id], ")"
+)
 
 # Extraire le workflow de base et le résultat du tuning
 best_workflow <- tuning_results |> extract_workflow(id = best_wflow_id)
-best_result   <- tuning_results |>
+best_result <- tuning_results |>
   extract_workflow_set_result(id = best_wflow_id)
 
 # Finaliser avec les meilleurs hyperparamètres (si modèle tuné)
 # Pour les modèles à hyperparamètres fixes (bag, logit, lda, qda),
 # le workflow est utilisé tel quel.
 if (inherits(best_result, "tune_results")) {
-  best_params    <- select_best(best_result, metric = "roc_auc")
+  best_params <- select_best(best_result, metric = "roc_auc")
   final_workflow <- best_workflow |> finalize_workflow(best_params)
 } else {
   final_workflow <- best_workflow
-  best_params    <- tibble(note = "Hyperparamètres fixes (pas de tuning)")
+  best_params <- tibble(note = "Hyperparamètres fixes (pas de tuning)")
 }
 
 
@@ -115,7 +85,7 @@ set.seed(2026)
 final_fit <- final_workflow |>
   last_fit(churn_split, metrics = churn_metrics)
 
-final_metrics     <- final_fit |> collect_metrics()
+final_metrics <- final_fit |> collect_metrics()
 final_predictions <- final_fit |> collect_predictions()
 
 
@@ -132,11 +102,11 @@ tableau_final_metrics <- final_metrics |>
   select(Métrique, Valeur) |>
   kable(
     booktabs = TRUE,
-    caption  = paste0(
+    caption = paste0(
       "Métriques finales sur le test set — ",
       noms_modeles[best_wflow_id]
     ),
-    align    = c("l", "c")
+    align = c("l", "c")
   ) |>
   kable_styling(
     latex_options = c("striped", "hold_position"),
@@ -165,29 +135,29 @@ tableau_cv_vs_test <- final_metrics |>
   mutate(
     Métrique = case_match(
       .metric,
-      "roc_auc"  ~ "ROC AUC",
-      "f_meas"   ~ "F1-Score",
+      "roc_auc" ~ "ROC AUC",
+      "f_meas" ~ "F1-Score",
       "precision" ~ "Precision",
-      "recall"   ~ "Recall",
+      "recall" ~ "Recall",
       "accuracy" ~ "Accuracy"
     ),
     `CV (moyenne)` = sprintf("%.2f%%", cv_mean * 100),
-    `Test set`     = sprintf("%.2f%%", test * 100),
-    `Écart`        = sprintf("%+.2f pp", (test - cv_mean) * 100)
+    `Test set` = sprintf("%.2f%%", test * 100),
+    `Écart` = sprintf("%+.2f pp", (test - cv_mean) * 100)
   ) |>
   select(Métrique, `CV (moyenne)`, `Test set`, `Écart`) |>
   kable(
     booktabs = TRUE,
-    caption  = paste0(
+    caption = paste0(
       "Comparaison CV vs test set — ",
       noms_modeles[best_wflow_id],
       " (écart en points de pourcentage)"
     ),
-    align    = c("l", "c", "c", "c")
+    align = c("l", "c", "c", "c")
   ) |>
   kable_styling(
     latex_options = c("striped", "hold_position"),
-    font_size      = 10
+    font_size = 10
   )
 
 
@@ -220,12 +190,12 @@ plot_final_roc <- final_predictions |>
   scale_x_continuous(labels = scales::label_percent()) +
   scale_y_continuous(labels = scales::label_percent()) +
   labs(
-    title    = paste0(
+    title = paste0(
       "Courbe ROC finale — ", noms_modeles[best_wflow_id]
     ),
     subtitle = "Évaluation sur le test set (données inédites)",
-    x        = "1 − Spécificité (Taux de faux positifs)",
-    y        = "Sensibilité (Recall)"
+    x = "1 − Spécificité (Taux de faux positifs)",
+    y = "Sensibilité (Recall)"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -246,12 +216,12 @@ plot_final_conf_mat <- final_predictions |>
   tidy() |>
   separate(name, into = c("prefix", "pred_idx", "truth_idx"), sep = "_") |>
   mutate(
-    pred_class  = c("No", "Yes")[as.integer(pred_idx)],
+    pred_class = c("No", "Yes")[as.integer(pred_idx)],
     truth_class = c("No", "Yes")[as.integer(truth_idx)],
-    cell_type   = case_when(
-      pred_class == "No"  & truth_class == "No"  ~ "VN",
-      pred_class == "Yes" & truth_class == "No"  ~ "FP",
-      pred_class == "No"  & truth_class == "Yes" ~ "FN",
+    cell_type = case_when(
+      pred_class == "No" & truth_class == "No" ~ "VN",
+      pred_class == "Yes" & truth_class == "No" ~ "FP",
+      pred_class == "No" & truth_class == "Yes" ~ "FN",
       pred_class == "Yes" & truth_class == "Yes" ~ "VP"
     )
   ) |>
@@ -267,12 +237,12 @@ plot_final_conf_mat <- final_predictions |>
     name = "Effectif"
   ) +
   labs(
-    title    = paste0(
+    title = paste0(
       "Matrice de confusion finale — ", noms_modeles[best_wflow_id]
     ),
     subtitle = "Test set | VN/VP = correct, FN/FP = erreur",
-    x        = "Churn réel",
-    y        = "Churn prédit"
+    x = "Churn réel",
+    y = "Churn prédit"
   ) +
   theme_minimal(base_size = 13) +
   theme(
@@ -290,7 +260,7 @@ plot_final_conf_mat <- final_predictions |>
 # Fonctionne pour Random Forest (permutation) et XGBoost (gain).
 # Pour LDA/QDA/SVM/KNN, vip() ne produit pas d'importance — on gère ce cas.
 
-final_fitted_wf    <- extract_workflow(final_fit)
+final_fitted_wf <- extract_workflow(final_fit)
 final_fitted_model <- extract_fit_parsnip(final_fitted_wf)
 
 modeles_avec_vip <- c("xgb_xgb", "tree_rf", "tree_bag", "tree_dt")
@@ -299,19 +269,19 @@ if (best_wflow_id %in% modeles_avec_vip) {
   plot_vip <- final_fitted_model |>
     vip(
       num_features = 15,
-      aesthetics   = list(
+      aesthetics = list(
         fill   = palette_modeles[best_wflow_id],
         colour = "white",
         alpha  = 0.85
       )
     ) +
     labs(
-      title    = paste0(
+      title = paste0(
         "Importance des variables — ", noms_modeles[best_wflow_id]
       ),
       subtitle = "15 variables les plus importantes",
-      x        = "Importance",
-      y        = NULL
+      x = "Importance",
+      y = NULL
     ) +
     theme_minimal(base_size = 12) +
     theme(

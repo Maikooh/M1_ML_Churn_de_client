@@ -11,7 +11,7 @@
 #
 # Prérequis : objets issus de 02_echantillon_et_recipe.R et 03_model_spec.R
 
-library(tidymodels)
+source("script/_utils.R")
 
 
 # ── Construction du workflow set ─────────────────────────────────────────────

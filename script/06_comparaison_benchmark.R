@@ -9,9 +9,7 @@
 #   Graphiques : plot_benchmark_roc, plot_roc_curves, plot_metrics_heatmap,
 #                plot_conf_matrices
 
-library(tidymodels)
-library(knitr)
-library(kableExtra)
+source("script/_utils.R")
 
 
 # ── 0. Chargement des résultats si nécessaire ────────────────────────────────
@@ -20,25 +18,6 @@ if (!exists("benchmark_results")) {
   benchmark_results <- readRDS("data/benchmark_results_churn.rds")
 }
 
-# Palette commune pour les modèles — cohérence visuelle entre tous les graphiques
-modeles <- c(
-  "xgb_xgb", "tree_rf", "tree_bag", "tree_dt",
-  "dist_logit", "dist_knn", "dist_svm_lin", "dist_svm_rad",
-  "discrim_lda", "discrim_qda"
-)
-
-palette_modeles <- c(
-  "xgb_xgb"      = "#E24B4A",
-  "tree_rf"      = "#378ADD",
-  "tree_bag"     = "#1D9E75",
-  "tree_dt"      = "#BA7517",
-  "dist_logit"   = "#7F77DD",
-  "dist_knn"     = "#D85A30",
-  "dist_svm_lin" = "#888780",
-  "dist_svm_rad" = "#D4537E",
-  "discrim_lda"  = "#6B8E23",
-  "discrim_qda"  = "#20B2AA"
-)
 
 
 # ── 1. Tableau récapitulatif des métriques ───────────────────────────────────
@@ -199,12 +178,12 @@ plot_conf_matrices <- predictions_cv |>
   # "cell_R_C" → 3 morceaux : préfixe "cell", indice ligne, indice colonne
   separate(name, into = c("prefix", "pred_idx", "truth_idx"), sep = "_") |>
   mutate(
-    pred_class  = c("No", "Yes")[as.integer(pred_idx)],
+    pred_class = c("No", "Yes")[as.integer(pred_idx)],
     truth_class = c("No", "Yes")[as.integer(truth_idx)],
-    cell_type   = case_when(
-      pred_class == "No"  & truth_class == "No"  ~ "VN",
-      pred_class == "Yes" & truth_class == "No"  ~ "FP",
-      pred_class == "No"  & truth_class == "Yes" ~ "FN",
+    cell_type = case_when(
+      pred_class == "No" & truth_class == "No" ~ "VN",
+      pred_class == "Yes" & truth_class == "No" ~ "FP",
+      pred_class == "No" & truth_class == "Yes" ~ "FN",
       pred_class == "Yes" & truth_class == "Yes" ~ "VP"
     )
   ) |>

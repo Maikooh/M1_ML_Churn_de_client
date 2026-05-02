@@ -6,13 +6,9 @@
 #   Graphiques: plot_desequilibre, plot_dist_num, plot_boxplot_churn,
 #               plot_correlation, plot_cat_churn
 
-library(tidyverse)
-library(knitr)
-library(kableExtra)
+source("script/_utils.R")
 
-# Palette utilisée dans tout le script
-couleurs_churn <- c("No" = "#4999da", "Yes" = "#f13a3a")
-
+# Palette / thème par défaut pour les graphiques
 theme_set(
   theme_minimal(base_size = 11) +
     theme(
@@ -213,8 +209,8 @@ vars_cat <- data |>
 plot_cat_churn <- data |>
   select(all_of(vars_cat), Churn) |>
   pivot_longer(-Churn,
-               names_to = "Variable", values_to = "Modalite",
-               values_transform = as.character
+    names_to = "Variable", values_to = "Modalite",
+    values_transform = as.character
   ) |>
   mutate(
     Modalite = case_when(

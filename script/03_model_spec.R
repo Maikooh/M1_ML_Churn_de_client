@@ -20,12 +20,7 @@
 #
 # Prérequis : aucun objet nécessaire, fichier autonome.
 
-library(tidymodels)
-library(kknn) # nearest_neighbor() engine
-library(ranger) # rand_forest() engine
-library(xgboost) # boost_tree() engine
-library(kernlab) # svm_rbf() et svm_linear() engine
-library(discrim) # discrim_linear() et discrim_quad() engine (MASS)
+source("script/_utils.R")
 
 
 # ── 1. Baseline ──────────────────────────────────────────────────────────────

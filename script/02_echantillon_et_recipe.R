@@ -11,8 +11,7 @@
 #   churn_split, train_data, test_data, churn_folds
 #   recipe_tree, recipe_xgb, recipe_distance, recipe_lda_qda
 
-library(tidymodels)
-library(themis) # step_smote(), step_smotenc()
+source("script/_utils.R")
 
 set.seed(2026)
 
