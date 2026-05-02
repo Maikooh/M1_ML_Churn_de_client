@@ -102,10 +102,6 @@ tableau_final_metrics <- final_metrics |>
   select(Métrique, Valeur) |>
   kable(
     booktabs = TRUE,
-    caption = paste0(
-      "Métriques finales sur le test set — ",
-      noms_modeles[best_wflow_id]
-    ),
     align = c("l", "c")
   ) |>
   kable_styling(
@@ -148,11 +144,6 @@ tableau_cv_vs_test <- final_metrics |>
   select(Métrique, `CV (moyenne)`, `Test set`, `Écart`) |>
   kable(
     booktabs = TRUE,
-    caption = paste0(
-      "Comparaison CV vs test set — ",
-      noms_modeles[best_wflow_id],
-      " (écart en points de pourcentage)"
-    ),
     align = c("l", "c", "c", "c")
   ) |>
   kable_styling(
@@ -331,6 +322,9 @@ rm(list = setdiff(ls(), c(
   "palette_modeles", "noms_modeles",
   "tableau_final_metrics", "tableau_cv_vs_test",
   "plot_final_roc", "plot_final_conf_mat", "plot_vip",
+  "tableau_best_params",
+  "plot_benchmark_roc", "plot_conf_matrices",
+  "plot_tuning_ranking", "plot_tuning_conf_matrices",
   "tableau_presentation_donnees",
   "tableau_summary_num",
   "tableau_summary_cat",
