@@ -21,7 +21,7 @@ library(tidymodels)
 library(knitr)
 library(kableExtra)
 library(patchwork) # composition de graphiques
-
+library(ggrepel)
 
 # ── 0. Chargement des résultats si nécessaire ────────────────────────────────
 
@@ -97,7 +97,6 @@ tableau_tuning_metrics <- tuning_metrics_df |>
   ) |>
   kable(
     booktabs = TRUE,
-    caption = "Comparaison des modèles après tuning (meilleure configuration)",
     align = c("l", rep("c", 5))
   ) |>
   kable_styling(
@@ -157,7 +156,6 @@ tableau_best_params <- tibble(
   mutate(`ROC AUC` = sprintf("%.2f%%", `ROC AUC` * 100)) |>
   kable(
     booktabs = TRUE,
-    caption = "Meilleurs hyperparamètres par modèle",
     align = c("l", "l", "c")
   ) |>
   kable_styling(
@@ -173,37 +171,28 @@ tableau_best_params <- tibble(
 plot_tuning_ranking <- tuning_results |>
   rank_results(rank_metric = "roc_auc", select_best = TRUE) |>
   filter(.metric == "roc_auc") |>
-  mutate(
-    wflow_id = fct_reorder(wflow_id, mean),
-    nom = noms_modeles[as.character(wflow_id)]
-  ) |>
+  mutate(wflow_id = fct_reorder(wflow_id, mean)) |>
   ggplot(aes(x = mean, y = wflow_id, colour = wflow_id)) +
-  geom_point(size = 4, show.legend = FALSE) +
   geom_errorbar(
     aes(xmin = mean - 1.96 * std_err, xmax = mean + 1.96 * std_err),
-    width = 0.3, alpha = 0.7, linewidth = 0.8, show.legend = FALSE,
-    orientation = "y"
+    width = 0, alpha = 0.5, linewidth = 0.8, show.legend = FALSE
   ) +
-  geom_vline(xintercept = 0.9, linetype = "dashed", colour = "grey50", alpha = 0.5) +
+  geom_point(size = 3, show.legend = FALSE) +
+  geom_vline(xintercept = 0.95, linetype = "dotted", colour = "grey80") +
   scale_colour_manual(values = palette_modeles) +
   scale_x_continuous(
-    labels = scales::label_percent(),
-    limits = c(0.75, 1),
-    breaks = seq(0.75, 1, 0.05)
+    labels = scales::label_percent(accuracy = 1),
+    limits = c(0.90, 1.0),
+    breaks = seq(0.90, 1.0, 0.02)
   ) +
   scale_y_discrete(labels = noms_modeles) +
-  labs(
-    title = "Classement des modèles après tuning",
-    subtitle = "Meilleure configuration par modèle — ROC AUC (moyenne ± IC 95%)",
-    x = "ROC AUC",
-    y = NULL
-  ) +
-  theme_minimal(base_size = 12) +
+  labs(x = NULL, y = NULL) + # Tous les titres sont supprimés
+  theme_minimal(base_size = 10) +
   theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(colour = "grey40"),
     panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_line(linetype = "dotted")
+    panel.grid.major.y = element_blank(),
+    axis.text.y = element_text(face = "bold", size = 9),
+    axis.text.x = element_text(colour = "grey50")
   )
 
 
@@ -235,24 +224,25 @@ predictions_tuning <- bind_rows(
 plot_tuning_roc <- predictions_tuning |>
   group_by(wflow_id) |>
   roc_curve(truth = Churn, .pred_Yes, event_level = "second") |>
-  mutate(nom = noms_modeles[as.character(wflow_id)]) |>
   ggplot(aes(x = 1 - specificity, y = sensitivity, colour = wflow_id)) +
-  geom_line(linewidth = 0.9) +
-  geom_abline(linetype = "dashed", colour = "grey60", linewidth = 0.5) +
-  scale_colour_manual(values = palette_modeles, labels = noms_modeles, name = "Modèle") +
-  scale_x_continuous(labels = scales::label_percent()) +
-  scale_y_continuous(labels = scales::label_percent()) +
+  # Diagonale de référence
+  geom_abline(linetype = "dotted", colour = "grey70", linewidth = 0.5) +
+  geom_line(linewidth = 0.8, alpha = 0.9) +
+  scale_colour_manual(values = palette_modeles, labels = noms_modeles) +
+  # Optimisation de l'espace et des axes
+  scale_x_continuous(labels = scales::label_percent(), expand = c(0.01, 0.01)) +
+  scale_y_continuous(labels = scales::label_percent(), expand = c(0.01, 0.01)) +
+  coord_equal() +
   labs(
-    title = "Courbes ROC — Comparaison après tuning",
-    subtitle = "Meilleure configuration par modèle | Diagonale = classifieur aléatoire",
-    x = "1 − Spécificité (Taux de faux positifs)",
-    y = "Sensibilité (Recall)"
+    x = "Taux de faux positifs",
+    y = "Taux de vrais positifs",
+    colour = NULL
   ) +
-  theme_minimal(base_size = 12) +
+  theme_minimal(base_size = 10) +
   theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(colour = "grey40"),
-    legend.position = "right"
+    panel.grid.minor = element_blank(),
+    legend.position = "right",
+    axis.title = element_text(size = 9, colour = "grey30")
   )
 
 
@@ -348,37 +338,37 @@ plot_tuning_conf_matrices <- predictions_tuning |>
   conf_mat(truth = Churn, estimate = .pred_class) |>
   mutate(tidied = map(conf_mat, tidy)) |>
   unnest(tidied) |>
-  separate(name, into = c("Predicted", "Truth"), sep = "_") |>
+  separate(name, into = c("prefix", "pred_idx", "truth_idx"), sep = "_") |>
   mutate(
-    pred_class = rep(c("No", "No", "Yes", "Yes"), length.out = n()),
-    truth_class = rep(c("No", "Yes", "No", "Yes"), length.out = n()),
-    cell_type = case_when(
+    pred_class = c("No", "Yes")[as.integer(pred_idx)],
+    truth_class = c("No", "Yes")[as.integer(truth_idx)],
+    cell_label = case_when(
       pred_class == "No" & truth_class == "No" ~ "VN",
-      pred_class == "No" & truth_class == "Yes" ~ "FN",
       pred_class == "Yes" & truth_class == "No" ~ "FP",
+      pred_class == "No" & truth_class == "Yes" ~ "FN",
       pred_class == "Yes" & truth_class == "Yes" ~ "VP"
     )
   ) |>
   ggplot(aes(x = truth_class, y = pred_class, fill = value)) +
-  geom_tile(colour = "white", linewidth = 0.8) +
+  geom_tile(colour = "white", linewidth = 0.5) +
   geom_text(
-    aes(label = paste0(cell_type, "\n", value)),
-    size = 2.8, fontface = "bold", colour = "white"
+    aes(
+      label = paste0(cell_label, "\n", value),
+      colour = value > (max(value) / 2)
+    ),
+    size = 2.8, fontface = "bold", show.legend = FALSE
   ) +
-  facet_wrap(~nom, ncol = 5) +
-  scale_fill_gradient(low = "#B5D4F4", high = "#185FA5", name = "Effectif") +
-  labs(
-    title = "Matrices de confusion après tuning",
-    subtitle = "Meilleure configuration par modèle | VN/VP = correct, FN/FP = erreur",
-    x = "Churn réel",
-    y = "Churn prédit"
-  ) +
-  theme_minimal(base_size = 10) +
+  facet_wrap(~nom, ncol = 4) +
+  # Dégradé de bleu simple et efficace
+  scale_fill_gradient(low = "#E3F2FD", high = "#185FA5") +
+  scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  coord_equal() +
+  labs(x = "Réel", y = "Prédit") +
+  theme_minimal(base_size = 9) +
   theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(colour = "grey40"),
     panel.grid = element_blank(),
-    strip.text = element_text(face = "bold", size = 9)
+    strip.text = element_text(face = "bold"),
+    legend.position = "none" # On masque la légende pour un look ultra-clean
   )
 
 
@@ -392,24 +382,37 @@ plot_precision_recall <- tuning_metrics_df |>
   pivot_wider(names_from = .metric, values_from = mean) |>
   mutate(nom = noms_modeles[as.character(wflow_id)]) |>
   ggplot(aes(x = recall, y = precision, colour = wflow_id)) +
-  geom_point(size = 5, show.legend = FALSE) +
-  geom_text(
+  # Lignes de repère pour le "perfect score"
+  geom_hline(yintercept = 1, linetype = "dotted", colour = "grey80") +
+  geom_vline(xintercept = 1, linetype = "dotted", colour = "grey80") +
+  # Points et étiquettes intelligentes
+  geom_point(size = 3, alpha = 0.8, show.legend = FALSE) +
+  geom_text_repel(
     aes(label = nom),
-    vjust = -1, hjust = 0.5, size = 3, show.legend = FALSE
+    size = 3.5,
+    fontface = "bold",
+    box.padding = 0.5,
+    max.overlaps = Inf,
+    show.legend = FALSE
   ) +
   scale_colour_manual(values = palette_modeles) +
-  scale_x_continuous(labels = scales::label_percent(), limits = c(0.5, 1)) +
-  scale_y_continuous(labels = scales::label_percent(), limits = c(0.5, 1)) +
-  labs(
-    title = "Compromis Precision vs Recall",
-    subtitle = "Coin supérieur droit = meilleur compromis",
-    x = "Recall (Sensibilité)",
-    y = "Precision"
+  # Zoom sur la zone de haute performance
+  scale_x_continuous(
+    labels = scales::label_percent(),
+    limits = c(0.80, 1.01),
+    breaks = seq(0.8, 1, 0.05)
   ) +
-  theme_minimal(base_size = 12) +
+  scale_y_continuous(
+    labels = scales::label_percent(),
+    limits = c(0.80, 1.01),
+    breaks = seq(0.8, 1, 0.05)
+  ) +
+  coord_equal() + # Pour que 1% en X vaille 1% en Y
+  labs(x = "Recall", y = "Précision") +
+  theme_minimal(base_size = 10) +
   theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(colour = "grey40")
+    panel.grid.minor = element_blank(),
+    axis.title = element_text(colour = "grey30")
   )
 
 

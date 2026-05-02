@@ -1,0 +1,976 @@
+---
+title: "Prédiction du churn client dans le secteur des télécommunications"
+subtitle: "Étude comparative de dix modèles de classification supervisée avec *tidymodels*"
+author: "Barthélémy Bastien et  Fadli Aaron"
+date: today
+date-format: "D MMMM YYYY"
+lang: fr
+abstract: |
+  La prédiction du désabonnement client (churn) constitue un enjeu stratégique majeur
+  pour les opérateurs de télécommunications. Ce rapport présente une étude comparative
+  de dix algorithmes de classification supervisée appliquée à l'Iranian Churn Dataset
+  (3 150 observations, 13 prédicteurs), un jeu de données caractérisé par un déséquilibre
+  de classes marqué (environ 16 % de churners). La méthodologie repose sur le cadre
+  algorithmique, augmentation synthétique par SMOTE, validation croisée stratifiée
+  à dix plis, et optimisation des hyperparamètres par échantillonnage Latin Hypercube
+  combiné à la course ANOVA (tune_race_anova). Les dix modèles évalués couvrent les
+  et quadratique, méthodes à noyau (SVM linéaire et RBF), k plus proches voisins,
+  arbres de décision, méthodes ensemblistes (forêt aléatoire, bagging, XGBoost) et
+  régression logistique. Les résultats révèlent une supériorité nette des méthodes
+  ensemblistes, confirmée par l'évaluation finale sur l'ensemble de test qui atteste
+  d'une bonne capacité de généralisation sans surapprentissage significatif.
+  tidymodels sous R : quatre recettes de prétraitement adaptées à chaque famille
+  principales familles de la classification supervisée : analyse discriminante linéaire
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    geometry:
+      - top=2.5cm
+      - bottom=2.5cm
+      - left=3cm
+      - right=2.5cm
+    fontsize: 11pt
+    linestretch: 1.25
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    linkcolor: "NavyBlue"
+    urlcolor: "NavyBlue"
+    fig-pos: "H"
+    fig-align: center
+    highlight-style: tango
+    include-in-header:
+      text: |
+        \usepackage{float}
+        \floatplacement{figure}{H}
+        \floatplacement{table}{H}
+        \usepackage{booktabs}
+        \usepackage{longtable}
+        \usepackage{colortbl}
+        \usepackage{xcolor}
+        \usepackage{fancyhdr}
+        \pagestyle{fancy}
+        \fancyhf{}
+        \rhead{\small Churn Télécom \textemdash{} Classification supervisée}
+        \lhead{\small Master MECEN}
+        \cfoot{\small\thepage}
+        \setlength{\headheight}{14pt}
+        \usepackage{etoolbox}
+        \AtEndEnvironment{abstract}{\newpage}
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+\newpage
+
+# Introduction
+
+## Contexte économique et enjeux du churn
+
+Dans un marché des télécommunications caractérisé par une saturation
+croissante et une concurrence accrue, la fidélisation des clients
+représente un levier de rentabilité déterminant. Le *churn* - ou
+désabonnement - désigne le phénomène par lequel un client met fin à sa
+relation contractuelle avec un opérateur pour migrer vers un concurrent
+ou cesser de souscrire à un service. Les études sectorielles estiment
+que le coût d'acquisition d'un nouveau client est plusieurs fois
+supérieur au coût de fidélisation d'un client existant. L'enjeu de la
+prédiction du churn est donc double : identifier les clients à risque
+avant leur départ effectif, et déclencher des actions de rétention
+ciblées et personnalisées.
+
+La modélisation prédictive du churn s'inscrit dans la problématique plus
+large du *Customer Relationship Management* (CRM). Elle vise à
+attribuer, pour chaque client, une probabilité de départ fondée sur ses
+caractéristiques comportementales, d'usage et contractuelles. Cette
+approche permet de segmenter la clientèle selon son niveau de risque et
+d'optimiser l'allocation des ressources marketing.
+
+D'un point de vue technique, la prédiction du churn constitue un
+problème de **classification binaire supervisée** : la variable cible
+prend deux valeurs (churn / non-churn), et l'objectif est d'apprendre
+une règle de décision à partir d'observations labellisées. Ce problème
+présente toutefois plusieurs défis spécifiques : le déséquilibre des
+classes (les churners sont généralement minoritaires), la colinéarité
+potentielle des prédicteurs, et la nécessité d'une bonne généralisation
+sur des données futures.
+
+## Problématique et objectifs
+
+Ce rapport s'inscrit dans le cadre du Master MECEN de l'Université de
+Tours. L'objectif principal est de **comparer les performances de dix
+algorithmes de classification supervisée** sur la prédiction du churn
+client, à partir de l'Iranian Churn Dataset mis à disposition par l'**UC
+Irvine Machine Learning Repository**.
+
+Quatre questions de recherche structurent l'analyse :
+
+1.  Quels modèles offrent les meilleures performances de discrimination
+    entre clients churners et non-churners, avec leurs hyperparamètres
+    par défaut ?
+2.  Dans quelle mesure l'optimisation systématique des hyperparamètres
+    améliore-t-elle les performances relatives des modèles ?
+3.  Le modèle sélectionné généralise-t-il correctement à des données
+    inédites, sans surapprentissage ?
+4.  Quelles variables jouent le rôle le plus déterminant dans la
+    prédiction du churn ?
+
+\newpage
+
+# Données et analyse exploratoire
+
+```{r setup}
+#| include: false
+options(knitr.table.format = "latex")
+options(kableExtra.latex.load_packages = FALSE)
+
+library(tidymodels)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(themis)
+library(kknn)
+library(ranger)
+library(xgboost)
+library(kernlab)
+library(discrim)
+library(finetune)
+library(patchwork)
+library(vip)
+
+source("script/00_presentation_des_donnees.R")
+source("script/01_analyse_exploratoire.R")
+source("script/02_echantillon_et_recipe.R")
+source("script/03_model_spec.R")
+source("script/04_workflow.R")
+
+options(yardstick.event_first = FALSE)
+churn_metrics <- metric_set(roc_auc, f_meas, precision, recall, accuracy)
+
+benchmark_results <- readRDS("data/benchmark_results_churn.rds")
+tuning_results    <- readRDS("data/tuning_results_churn.rds")
+```
+
+## Description du jeu de données
+
+\[L'*Iranian Churn
+Dataset\](*<https://archive.ics.uci.edu/dataset/563/iranian+churn+dataset>)
+a été collecté auprès d'un opérateur de téléphonie iranien sur une
+période de douze mois. Il comprend **`r nrow(data)` observations** et
+**`r ncol(data)` variables**, 13 prédicteurs et une variable cible
+binaire (*Churn*), dont plusieurs de nature ordinale ou binaire
+représentant des comportements d'usage et des attributs contractuels. Le
+tableau @tbl-variables présente le dictionnaire complet des variables.
+
+```{r}
+#| label: tbl-variables
+#| tbl-cap: "Dictionnaire des variables du jeu de données"
+tableau_presentation_donnees
+```
+
+Les variables se répartissent en trois catégories : **variables
+d'usage** (comportement téléphonique, nombre d'échecs d'appel, secondes
+d'utilisation, fréquence d'appels, fréquence de SMS, nombre de numéros
+distincts appelés); **variables contractuelles** (durée d'abonnement,
+montant de facturation, plan tarifaire, statut du compte); **variables
+client** (groupe d'âge, valeur client calculée). L'absence de valeurs
+manquantes (d'après la documentation de l'UCI) simplifie le
+prétraitement tout en motivant une attention particulière aux
+distributions atypiques.
+
+## Déséquilibre de la variable cible
+
+```{r}
+#| label: fig-desequilibre
+#| fig-cap: "Distribution de la variable cible Churn (3 150 observations). La classe minoritaire (churners) représente environ 16 % des observations."
+#| fig-height: 3.2
+#| fig-width: 4
+plot_desequilibre
+```
+
+La variable cible présente un **déséquilibre marqué**
+(@fig-desequilibre) : environ 84 % des clients ne churne pas et 16 %
+churne. Ce déséquilibre a plusieurs implications méthodologiques
+importantes.
+
+Premièrement, l'*accuracy* est une métrique inadaptée : un classifieur
+naïf prédisant systématiquement « pas de churn » obtiendrait une bonne
+accuracy sans aucune utilité prédictive réelle. Deuxièmement, le **ROC
+AUC** est retenu comme métrique principale car il mesure la capacité de
+discrimination indépendamment du seuil de décision et est robuste au
+déséquilibre des classes. Troisièmement, une technique de
+rééchantillonnage (**SMOTE**) est intégrée dans chaque recette de
+prétraitement pour augmenter synthétiquement la classe minoritaire sur
+les seuls plis d'entraînement, afin d'éviter tout biais dans
+l'estimation des performances.
+
+## Statistiques descriptives
+
+```{r}
+#| label: tbl-stats-num
+#| tbl-cap: "Statistiques descriptives des variables numériques (min, quartiles, médiane, moyenne, max, écart-type et taux de valeurs manquantes)."
+tableau_summary_num
+```
+
+```{r}
+#| label: tbl-stats-cat
+#| tbl-cap: "Distribution des modalités pour les variables catégorielles (effectifs et proportions)."
+tableau_summary_cat
+```
+
+Les tableaux @tbl-stats-num et @tbl-stats-cat révèlent une forte
+hétérogénéité dans l'usage du service : la durée des appels et la
+fréquence d'utilisation présentent des dispersions importantes,
+suggérant des profils clients très variés. La variable *Complains*
+signale que moins de 10 % des clients ont déposé une réclamation, mais
+son association avec le churn s'avérera particulièrement forte dans
+l'analyse bivariée.
+
+## Analyse bivariée
+
+### Distributions conditionnelles par classe
+
+```{r}
+#| label: fig-dist-num
+#| fig-cap: "Distributions des variables numériques conditionnellement à la classe Churn (courbes de densité superposées). Un décalage entre les courbes bleue (non-churn) et rouge (churn) indique un fort pouvoir discriminant."
+#| fig-height: 7.5
+#| fig-width: 6
+plot_dist_num
+```
+
+De la @fig-dist-num, plusieurs observations structurantes émergent. Les
+clients churners présentent un **nombre d'échecs d'appel supérieur** à
+la moyenne, ce qui reflète une dégradation perçue de la qualité de
+service avant le départ. La **durée et la fréquence d'utilisation**
+diffèrent notablement : les churners ont tendance à réduire leur usage
+avant de partir, signal précurseur d'un désengagement progressif. La
+**valeur client** est systématiquement plus faible pour les churners,
+reflet cohérent de leur comportement d'utilisation réduit. Enfin la
+durée d'abonnement montre que le risque de churn est présent à deux
+moments: soit au début de la relation client, soit à une maturité plus
+long termes.
+
+```{r}
+#| label: fig-boxplots
+#| fig-cap: "Boxplots des variables numériques par classe Churn. La boîte représente le premier et troisième quartile, la ligne centrale la médiane, et les points les observations atypiques."
+#| fig-height: 5
+#| fig-width: 4
+plot_boxplot_churn
+```
+
+Les boxplots (@fig-boxplots) complètent l'analyse des distributions en
+mettant en évidence les médianes et quartiles conditionnels. Pour
+plusieurs variables, le décalage des médianes entre les deux classes est
+clairement visible, confirmant leur utilité discriminante. La présence
+de nombreuses observations atypiques dans certaines variables (notamment
+*Call Failures* et *Frequency of SMS*) souligne l'asymétrie des
+distributions.
+
+### Structure de corrélation entre prédicteurs
+
+```{r}
+#| label: fig-corr
+#| fig-cap: "Matrice de corrélation de Pearson entre les variables numériques (triangle inférieur). Les cellules bleues foncées indiquent une forte corrélation positive."
+#| fig-height: 4.5
+#| fig-width: 5.5
+plot_correlation
+```
+
+La figure @fig-corr met en évidence les corrélations entre variables
+numériques. Une corrélation forte et attendue apparaît entre *Seconds of
+Use* et *Frequency of Use* (plus on utilise le réseau, plus la durée est
+longue), ainsi qu'entre ces deux variables et *Distinct Called Numbers*.
+Cette colinéarité modérée motive l'usage de l'ACP dans la recette dédiée
+à LDA/QDA. Pour les autres paires, les corrélations restent modérées,
+indiquant que la majorité des prédicteurs apportent une information
+complémentaire sans redondance excessive.
+
+### Taux de churn par variable catégorielle
+
+```{r}
+#| label: fig-cat-churn
+#| fig-cap: "Taux de churn par modalité pour les variables catégorielles. Les différences importantes entre barres révèlent un fort pouvoir discriminant."
+#| fig-height: 4
+#| fig-width: 6
+plot_cat_churn
+```
+
+La @fig-cat-churn révèle des différences très nettes entre modalités. Le
+**statut inactif** est associé à un taux de churn nettement supérieur au
+statut actif : un client inactif est souvent déjà engagé dans un
+processus de départ. Les clients en **plan prépayé** churne davantage
+que ceux sous contrat, ce qui reflète un engagement contractuel plus
+faible. Enfin, les clients ayant déposé une **réclamation** présentent
+un taux de churn particulièrement élevé, soulignant l'importance de la
+gestion des plaintes dans la fidélisation.
+
+\newpage
+
+# Méthodologie
+
+## Partitionnement des données
+
+```{r}
+#| include: false
+n_train <- nrow(train_data)
+n_test  <- nrow(test_data)
+```
+
+Les données sont partitionnées en un **ensemble d'entraînement** (80 %,
+`r n_train` observations) et un **ensemble de test** (20 %, `r n_test`
+observations). La stratification sur la variable *Churn* garantit que la
+proportion de churners (\~16 %) est préservée dans les deux ensembles,
+évitant tout biais lié au déséquilibre lors de l'évaluation. L'ensemble
+de test est strictement isolé et n'intervient que lors de l'évaluation
+finale, il n'influence pas les décisions de modélisation et de tuning.
+
+Pour estimer la capacité de généralisation des modèles, une **validation
+croisée stratifiée à 10 plis** (*k-fold cross-validation*, $k = 10$) est
+appliquée à l'ensemble d'entraînement. À chaque itération, neuf plis
+servent à l'entraînement et un à la validation. Les métriques reportées
+correspondent aux moyennes sur les dix plis, assorties de leurs
+erreurs-types, qui permettent d'évaluer la stabilité des estimations et
+de comparer les modèles.
+
+## Prétraitement des données
+
+### Principes généraux
+
+Le prétraitement est implémenté via le système `recipe` de *tidymodels*,
+qui encapsule les transformations dans un pipeline reproductible
+appliqué séparément sur chaque pli d'entraînement. Quatre étapes
+communes sont partagées par toutes les recettes :
+
+1.  **Imputation** : remplacement des éventuelles valeurs manquantes
+    (*inutile ici mais appliqué par sécurité*) par la médiane (variables
+    numériques) ou le mode (variables catégorielles) ;
+2.  **Recodage** : transformation des variables catégorielles en
+    variables indicatrices (*dummy encoding*) pour les algorithmes qui
+    ne gèrent pas nativement les facteurs ;
+3.  **Suppression de la variance nulle** : élimination des colonnes
+    constantes ou quasi-constantes après recodage ;
+4.  **SMOTE** (Synthetic Minority Oversampling Technique) : génération
+    synthétique de nouvelles observations de la classe minoritaire par
+    interpolation dans l'espace des $k$ plus proches voisins de la
+    classe.
+
+SMOTE est intégré comme **dernière étape de la recette**, de sorte que
+lors de la validation croisée, la synthèse n'est appliquée qu'aux
+données d'entraînement de chaque pli, **jamais aux données de
+validation**. Cette précaution évite la *fuite de données* (*data
+leakage*) qui produirait des estimations de performance artificiellement
+optimistes.
+
+### Quatre recettes spécialisées
+
+Les algorithmes ayant des exigences de prétraitement distinctes, quatre
+recettes sont définies (@tbl-recipes) :
+
+```{r}
+#| label: tbl-recipes
+#| tbl-cap: "Quatre recettes de prétraitement adaptées aux familles algorithmiques. La normalisation et l'ACP sont requises uniquement pour les méthodes sensibles aux échelles."
+tibble::tibble(
+  Recette = c("recipe\\_tree", "recipe\\_xgb",
+              "recipe\\_distance", "recipe\\_lda\\_qda"),
+  Modèles = c("DT, Bagging, RF", "XGBoost",
+              "KNN, SVM, Logit", "LDA, QDA"),
+  Normalisation = c("Non", "Non", "Oui (z-score)", "Oui (z-score)"),
+  `Dummy encoding` = c("Non", "Oui (one-hot)", "Oui", "Oui"),
+  ACP = c("Non", "Non", "Non", "Oui (95 %)")
+) |>
+  kbl(booktabs = TRUE, align = "lllcc") |>
+  kable_styling(latex_options = c("hold_position", "striped"), font_size = 10)
+```
+
+Les **méthodes à base d'arbres** n'exigent ni normalisation ni dummy
+encoding (les implémentations *ranger* et *rpart* gèrent les facteurs
+nativement). Pour les **méthodes basées sur des distances** (KNN, SVM),
+la normalisation est indispensable : une variable à grande variance
+dominerait le calcul de distance. La normalisation *z-score* standardise
+chaque prédicteur à moyenne nulle et écart-type unitaire.
+
+Pour **LDA et QDA**, la réduction dimensionnelle par **ACP** (seuil à 95
+% de variance expliquée) est ajoutée pour deux raisons : décorreler les
+prédicteurs, ce qu'exige l'hypothèse de normalité multivariée, et
+réduire le nombre de paramètres à estimer.
+
+## Modèles de classification
+
+### Vue d'ensemble des dix modèles
+
+```{r}
+#| label: tbl-modeles
+#| tbl-cap: "Récapitulatif des dix modèles de classification implémentés, avec leur famille, package R et statut de tuning."
+tibble::tibble(
+  Famille = c("Référence", "Arbres", "Arbres", "Arbres",
+              "Boosting", "Distance", "Distance", "Distance",
+              "Discriminant", "Discriminant"),
+  Modèle = c("Régression logistique", "Arbre de décision",
+             "Bagging", "Forêt aléatoire",
+             "XGBoost", "KNN", "SVM Linéaire", "SVM RBF",
+             "LDA", "QDA"),
+  Package = c("stats", "rpart", "ranger", "ranger", "xgboost",
+              "kknn", "kernlab", "kernlab", "MASS", "MASS"),
+  Tuning  = c("Non", "Oui", "Non", "Oui", "Oui",
+              "Oui", "Oui", "Oui", "Non", "Non")
+) |>
+  kbl(booktabs = TRUE, align = "llll") |>
+  kable_styling(latex_options = c("hold_position", "striped"), font_size = 10) |>
+  column_spec(1, bold = TRUE)
+```
+
+### Description des algorithmes
+
+**Analyse discriminante linéaire (LDA) et quadratique (QDA)** (Fisher,
+1936) : Méthodes basées sur la distribution normale des données. La
+**LDA** crée des frontières de décision droites (linéaires), tandis que
+la **QDA** permet des courbes (quadratiques).
+
+**Arbre de décision (CART)** : Découpe les données en règles binaires
+simples (ex: "Si Age \< 30"). On utilise l'élagage ($\alpha$) pour
+éviter que l'arbre ne devienne trop complexe et ne mémorise le bruit.
+
+**Bagging et Forêt aléatoire** (Breiman, 2001) : Le bagging construit
+$B$ arbres indépendants sur des bootstraps de l'ensemble d'entraînement,
+utilisant tous les prédicteurs. La forêt aléatoire introduit une
+décorrélation supplémentaire : à chaque nœud, seul un sous-ensemble de
+$m = \lfloor\sqrt{p}\rfloor$ prédicteurs est candidat à la coupure
+optimale, réduisant la variance de l'agrégat par décorrélation des
+arbres.
+
+**XGBoost** (Chen & Guestrin, 2016) : Une méthode puissante où les
+arbres sont créés les uns après les autres. Chaque nouvel arbre apprend
+des erreurs du précédent pour corriger les prédictions, le tout avec une
+régularisation stricte pour éviter le surapprentissage.
+
+**K plus proches voisins** (Cover & Hart, 1967) : Classification par
+vote majoritaire sur les $k$ voisins les plus proches selon la distance
+euclidienne. Aucune hypothèse préalables, potentiellement performant
+pour des structures complexes mais sensible aux nombres de variables.
+
+**SVM linéaire et RBF** (Cortes & Vapnik, 1995) : Cherche à séparer les
+classes par la plus grande marge possible. La version **RBF** utilise un
+"kernel" pour transformer l'espace et créer des frontières linéaires
+complexes.
+
+## Protocole d'évaluation
+
+### Métriques de performance
+
+Cinq métriques sont calculées pour chaque modèle :
+
+-   **ROC AUC** (métrique principale) : mesure la discrimination globale
+    pour tous les seuils de décision. Robuste au déséquilibre des
+    classes.
+
+-   **F1-score** :
+    $F_1 = 2 \cdot \frac{\text{Précision} \times \text{Rappel}}{\text{Précision} + \text{Rappel}}$,
+    moyenne harmonique équilibrant la fiabilité des détections positives
+    et le taux de détection des churners réels.
+
+-   **Précision** : $\frac{VP}{VP + FP}$, proportion de détections de
+    churn effectivement correctes.
+
+-   **Rappel** (*Recall*/Sensibilité) : $\frac{VP}{VP + FN}$, proportion
+    de churners effectivement détectés. Dans un contexte de rétention,
+    manquer un churner (faux négatif) est généralement plus coûteux que
+    déclencher une action inutile (faux positif).
+
+-   **Accuracy** : indiquée à titre de référence uniquement, car
+    trompeuse sous déséquilibre de classes.
+
+\newpage
+
+# Benchmark initial
+
+Les dix modèles sont évalués avec leurs hyperparamètres par défaut par
+validation croisée stratifiée à 10 plis. L'objectif est d'établir un
+classement de référence et d'identifier les familles algorithmiques les
+plus prometteuses avant l'optimisation.
+
+```{r}
+#| include: false
+source("script/06_comparaison_benchmark.R")
+```
+
+## Tableau des métriques
+
+```{r}
+#| label: tbl-bench
+#| tbl-cap: "Métriques de performance (moyenne ± erreur standard sur 10 plis) pour les dix modèles."
+tableau_metriques
+```
+
+@tbl-bench présente les métriques pour chaque modèle, triées par ROC AUC
+décroissant. Les méthodes ensemblistes (forêt aléatoire, bagging,
+XGBoost) dominent le classement, confirmant leur capacité à capturer des
+interactions non-linéaires complexes dans les données. La régression
+logistique et LDA, modèles linéaires, offrent des performances
+honorables et constituent des points de comparaison interprétables. QDA
+présente une précision parfois élevée mais un rappel plus limité,
+traduisant un biais vers la prédiction de la classe majoritaire.
+
+## Classement par ROC AUC
+
+```{r}
+#| label: fig-bench-roc
+#| fig-cap: "Classement des dix modèles par ROC AUC - benchmark initial. Les segments représentent l'intervalle de confiance à 95 % (moyenne ± 1,96 erreur standard)."
+#| fig-height: 4.2
+#| fig-width: 6
+plot_benchmark_roc
+```
+
+La @fig-bench-roc confirme la hiérarchie observée dans le tableau. Les
+intervalles de confiance à 95 % permettent d'évaluer la significativité
+statistique des différences entre modèles : lorsque les intervalles se
+chevauchent, la différence de performance n'est pas statistiquement
+significative à ce niveau de confiance avec 10 plis.
+
+## Courbes ROC comparatives
+
+```{r}
+#| label: fig-roc-curves
+#| fig-cap: "Courbes ROC des dix modèles (probabilités agrégées sur les 10 plis de validation croisée). La diagonale en pointillés correspond à un classifieur aléatoire (AUC = 0,5)."
+#| fig-height: 4.5
+#| fig-width: 6.3
+plot_roc_curves
+```
+
+Les courbes ROC (@fig-roc-curves) visualisent le compromis rappel /
+spécificité pour l'ensemble des seuils de décision possibles. Les
+méthodes ensemblistes dominent clairement, leurs courbes étant proches
+du coin supérieur gauche (discrimination parfaite). Les méthodes
+linéaires (régression logistique, LDA) présentent des courbes régulières
+mais moins performantes. QDA, dont les hypothèses de normalité sont
+partiellement violées par les données, montre une courbe plus
+irrégulière.
+
+## Matrices de confusion agrégées
+
+```{r}
+#| label: fig-conf-bench
+#| fig-cap: "Matrices de confusion agrégées sur les 10 plis de validation croisée (benchmark initial). VN = vrais négatifs, VP = vrais positifs, FN = faux négatifs, FP = faux positifs."
+#| fig-height: 5
+#| fig-width: 6.3
+plot_conf_matrices
+```
+
+Les matrices de confusion (@fig-conf-bench) révèlent la structure fine
+des erreurs de classification. On distingue deux profils principaux :
+les modèles à fort rappel (peu de faux négatifs, mais potentiellement
+plus de faux positifs), et les modèles à forte précision (prédictions
+positives fiables, mais certains churners manqués). Dans un contexte de
+rétention client, le coût d'un faux négatif , *manquer un churner*,
+dépasse généralement celui d'un faux positif, *déclencher une action de
+rétention inutile*.
+
+\newpage
+
+# Optimisation des hyperparamètres
+
+## Stratégie de tuning
+
+Six des dix modèles disposent d'hyperparamètres libres à optimiser :
+l'arbre de décision, la forêt aléatoire, XGBoost, KNN, SVM linéaire et
+SVM RBF. Les quatre modèles restants ne font pas l'objet d'un tuning.
+
+La stratégie combine deux approches complémentaires :
+
+**Échantillonnage Latin Hypercube** : méthode garantissant une
+couverture uniforme de l'espace des hyperparamètres. Contrairement à la
+recherche en grille exhaustive, le LHS explore les valeurs
+intermédiaires et évite les redondances.
+
+**ANOVA** (`tune_race_anova`) : après un nombre minimal de plis
+d'évaluation, les configurations statistiquement inférieures aux
+meilleures sont éliminées par un test ANOVA. Cette approche réduit le
+temps de calcul par rapport à une évaluation exhaustive sur tous les
+plis.
+
+```{r}
+#| label: tbl-hyperparams
+#| tbl-cap: "Espaces de recherche définis pour l'optimisation des hyperparamètres par Latin Hypercube Sampling."
+tibble::tibble(
+  Modèle = c("Forêt aléatoire", "Forêt aléatoire",
+             "XGBoost", "XGBoost", "XGBoost",
+             "XGBoost", "XGBoost", "XGBoost",
+             "KNN", "SVM Linéaire",
+             "SVM RBF", "SVM RBF",
+             "Arbre de décision", "Arbre de décision",
+             "Arbre de décision"),
+  Hyperparamètre = c("mtry", "min\\_n",
+                     "trees", "learn\\_rate", "tree\\_depth",
+                     "mtry", "min\\_n", "loss\\_reduction",
+                     "neighbors", "cost",
+                     "cost", "rbf\\_sigma",
+                     "cost\\_complexity", "tree\\_depth",
+                     "min\\_n"),
+  Plage = c("[2, 12]", "[2, 30]",
+            "[100, 1000]", "[0,01, 0,3]", "[3, 10]",
+            "[5, 18]", "[2, 20]", "[0, 5]",
+            "[3, 50]", "[0,01, 100]",
+            "[0,1, 100]", "[0,001, 1]",
+            "[1e-5, 0,1]", "[3, 15]",
+            "[2, 30]"),
+  `Nb. configs` = c(30, 30, 30, 30, 30, 30, 30, 30,
+                    20, 20, 30, 30, 30, 30, 30)
+) |>
+  kbl(booktabs = TRUE, align = "llcc", escape = FALSE) |>
+  kable_styling(latex_options = c("hold_position", "striped"), font_size = 10)
+```
+
+## Résultats du tuning
+
+```{r}
+#| include: false
+source("script/08_comparaison_tuning_benchmark.R")
+```
+
+```{r}
+#| label: tbl-tuning
+#| tbl-cap: "Métriques de performance après optimisation des hyperparamètres --- meilleure configuration par modèle, validation croisée 10 plis."
+tableau_tuning_metrics
+```
+
+```{r}
+#| label: tbl-best-params
+#| tbl-cap: "Meilleurs hyperparamètres identifiés par modèle après optimisation, avec le ROC AUC correspondant."
+tableau_best_params
+```
+
+Le tableau @tbl-tuning présente les performances post-tuning pour la
+meilleure configuration de chaque modèle. Comparées au benchmark initial
+(@tbl-bench), les améliorations varient sensiblement selon l'algorithme.
+Le tableau @tbl-best-params détaille les valeurs optimales identifiées,
+qui constituent la configuration retenue pour l'évaluation finale.
+
+## Classement par ROC AUC après tuning
+
+```{r}
+#| label: fig-tuning-roc
+#| fig-cap: "Classement des dix modèles par ROC AUC - Tuning. Les segments représentent l'intervalle de confiance à 95 % (moyenne ± 1,96 erreur standard)."
+plot_tuning_ranking
+```
+
+La @fig-tuning-roc illustre le classement des modèles après
+optimisation. La hiérarchie entre familles algorithmiques se confirme :
+les méthodes ensemblistes conservent les meilleures positions, leurs
+performances progressant sensiblement par rapport au benchmark initial.
+
+Les intervalles de confiance permettent de nuancer les écarts apparents.
+Lorsqu'ils se chevauchent entre deux modèles, la différence de ROC AUC
+n'est pas statistiquement significative à 95 % sur ces 10 plis. À
+l'inverse, les modèles en bas de classement présentent des intervalles
+n'atteignant pas ceux du groupe de tête, confirmant une hiérarchie
+robuste entre les meilleures et les moins bonnes configurations.
+
+## Courbes ROC après tuning
+
+```{r}
+#| label: fig-roc-curves-tuning
+#| fig-cap: "Courbes ROC des dix modèles (probabilités agrégées sur les 10 plis de validationcroisée). La diagonale en pointillés correspond à un classifieur aléatoire (AUC = 0,5)"
+plot_tuning_roc
+```
+
+Les courbes ROC post-tuning (@fig-roc-curves-tuning) révèlent l'effet de
+l'optimisation sur la structure du compromis sensibilité / spécificité.
+Comparées au benchmark (@fig-roc-curves), les courbes des modèles tunés
+se resserrent vers le coin supérieur gauche, signe d'une meilleure
+discrimination pour l'ensemble des seuils de décision.
+
+## Matrices de confusion après tuning
+
+```{r}
+#| label: fig-conf-tuning
+#| fig-cap: "Matrices de confusion agrégées sur les 10 plis après optimisation des hyperparamètres. La réduction des erreurs de classification par rapport au benchmark est visible pour les meilleurs modèles."
+#| fig-height: 5
+#| fig-width: 6.3
+plot_tuning_conf_matrices
+```
+
+Les matrices de confusion post-tuning (figure @fig-conf-tuning)
+permettent d'évaluer l'impact de l'optimisation sur la structure des
+erreurs. Pour les modèles à fort potentiel, l'optimisation réduit
+simultanément les faux positifs et les faux négatifs, reflétant une
+amélioration globale de la discrimination. Pour certains modèles, le
+tuning améliore préférentiellement une dimension au détriment de
+l'autre, selon la direction imposée par le ROC AUC comme critère
+d'optimisation.
+
+\newpage
+
+# Évaluation finale sur le jeu de test
+
+Le meilleur modèle sélectionné lors du tuning est réentraîné sur
+**l'intégralité de l'ensemble d'entraînement**, puis évalué sur
+l'**ensemble de test** (données n'ayant participé ni à l'entraînement,
+ni à la validation croisée, ni au tuning). Cette étape est la seule
+permettant de mesurer la vraie performance de généralisation du modèle
+sur des données inédites.
+
+```{r}
+#| include: false
+source("script/09_evaluation_finale.R")
+```
+
+## Comparaison validation croisée vs. jeu de test
+
+```{r}
+#| label: tbl-cv-vs-test
+#| tbl-cap: "Comparaison des métriques entre la validation croisée (estimation) et le jeu de test (mesure réelle). L'écart est exprimé en points de pourcentage."
+tableau_cv_vs_test
+```
+
+Le tableau @tbl-cv-vs-test compare les métriques de validation croisée
+avec celles du jeu de test pour le meilleur modèle. Un **écart négatif**
+(test \< CV) signale un surapprentissage résiduel : le modèle a capturé
+des spécificités de l'entraînement qui ne se généralisent pas. Un
+**écart faible ou positif** indique une bonne généralisation.
+
+## Métriques finales sur le jeu de test
+
+```{r}
+#| label: tbl-final
+#| tbl-cap: "Métriques de performance du meilleur modèle sur le jeu de test, évaluation définitive."
+tableau_final_metrics
+```
+
+Le tableau @tbl-final présente les métriques définitives sur le jeu de
+test. Ces valeurs constituent l'estimation la plus fiable des
+performances attendues en déploiement opérationnel. Le ROC AUC sur le
+test set est la mesure centrale à retenir pour comparer ce modèle à
+d'autres systèmes de prédiction du churn.
+
+## Courbe ROC et matrice de confusion finales
+
+```{r}
+#| label: fig-final
+#| fig-cap: "Courbe ROC (gauche) et matrice de confusion (droite) du meilleur modèle sur le jeu de test. La valeur d'AUC est annotée directement sur la courbe."
+#| fig-height: 4.2
+#| fig-width: 6.3
+plot_final_roc + plot_final_conf_mat
+```
+
+La @fig-final présente les résultats graphiques de l'évaluation finale.
+La courbe ROC (gauche) illustre la performance de discrimination pour
+tous les seuils de décision, l'AUC annoté constitue la mesure de
+référence. La matrice de confusion (droite) détaille la distribution des
+quatre types de prédictions sur le jeu de test, permettant d'estimer le
+nombre réel de clients correctement identifiés et de churners manqués
+dans un contexte de déploiement opérationnel.
+
+## Importance des variables
+
+```{r}
+#| label: fig-vip
+#| fig-cap: "Importance relative des 15 variables les plus prédictives dans le modèle final (gain d'impureté pour les arbres, importance par permutation selon l'algorithme retenu)."
+#| fig-height: 5
+#| fig-width: 6
+if (!is.null(plot_vip)) {
+  plot_vip
+} else {
+  cat("Note : l'importance des variables n'est pas calculable analytiquement pour ce type de modèle.")
+}
+```
+
+La @fig-vip illustre l'importance relative des prédicteurs dans le
+modèle final. Pour les méthodes ensemblistes, l'importance est calculée
+par gain d'impureté (réduction de l'impureté de Gini pondérée par le
+nombre d'échantillons passant par chaque nœud) ou par permutation. Les
+variables en tête du classement sont celles sur lesquelles une
+intervention ciblée, *amélioration de la qualité de service, gestion
+proactive des réclamations, offres de rétention personnalisées*,
+produirait l'impact le plus fort sur la fidélisation client.
+
+L'analyse d'importance permet également de valider la cohérence du
+modèle avec la connaissance métier : les variables identifiées comme
+fortement prédictives (statut du compte, réclamations, durée d'usage)
+correspondent aux signaux d'alerte que les équipes de rétention
+expérimentées identifient empiriquement.
+
+\newpage
+
+# Discussion
+
+## Synthèse des résultats
+
+Les résultats de cette étude permettent de dégager plusieurs conclusions
+structurantes.
+
+**Supériorité des méthodes ensemblistes** : la forêt aléatoire, XGBoost
+et le bagging surpassent systématiquement les méthodes linéaires et
+paramétriques, sur l'ensemble des métriques et des protocoles
+d'évaluation. Cette supériorité s'explique par leur capacité à modéliser
+des interactions complexes et des non-linéarités dans les données, qui
+semblent caractéristiques du comportement de churn télécom.
+
+**Gain modéré du tuning** : l'optimisation des hyperparamètres apporte
+un gain mesurable mais inégalement distribué. Les méthodes ensemblistes
+bénéficient moins du tuning --- leurs paramètres par défaut sont déjà
+bien calibrés --- tandis que les SVM et KNN montrent une amélioration
+plus sensible, confirmant leur plus grande sensibilité aux
+hyperparamètres.
+
+**Généralisation validée** : la comparaison validation croisée vs. test
+ne révèle pas de surapprentissage majeur. Cette observation valide le
+protocole méthodologique adopté : stratification, SMOTE limité aux plis
+d'entraînement, ensemble de test strictement isolé.
+
+**Importance des variables** : les prédicteurs les plus discriminants
+identifiés sont cohérents avec les connaissances sectorielles : le
+statut du compte, les réclamations, la durée et la fréquence
+d'utilisation sont systématiquement parmi les variables les plus
+prédictives du churn dans la littérature télécom.
+
+## Limites méthodologiques
+
+**Violation des hypothèses LDA/QDA** : Les méthodes discriminantes
+supposent la normalité multivariée des prédicteurs dans chaque classe.
+Plusieurs variables sont binaires (*Complains*, *Status*, *Tariff Plan*)
+ou ordinales (*Age Group*, *Charge Amount*), violant cette hypothèse. La
+QDA, en particulier, requiert l'estimation d'une matrice de covariance
+par classe, potentiellement instable avec peu d'observations de la
+classe minoritaire. L'ACP en prétraitement atténue partiellement ces
+problèmes.
+
+**Biais du SMOTE** : SMOTE génère des observations synthétiques par
+interpolation linéaire dans l'espace des voisins proches, supposant une
+distribution continue des prédicteurs. La variante SMOTENC (*Nominal and
+Continuous*), utilisée pour les recettes à base d'arbres, traite
+séparément les variables nominales et continues, atténuant ce biais.
+
+**Absence de régularisation pour la régression logistique** : Le modèle
+logistique utilisé comme référence ne comprend pas de régularisation
+$L_1$ (*Lasso*) ou $L_2$ (*Ridge*). Pour des prédicteurs colinéaires,
+cela peut conduire à une instabilité des estimateurs et sous-estimer le
+potentiel de ce modèle dans un contexte de déploiement.
+
+**Limitations du jeu de données** : L'Iranian Churn Dataset ne contient
+pas d'information sur le type d'appareil, la localisation géographique,
+l'historique des interactions avec le service client ni la satisfaction
+mesurée. La période de collecte (12 mois) ne permet pas de modéliser la
+dynamique temporelle du comportement client.
+
+**Généralisation géographique** : Le jeu de données étant spécifique à
+un opérateur iranien, les résultats et importances de variables
+pourraient différer pour d'autres marchés ou périodes, en raison de
+spécificités réglementaires, concurrentielles ou comportementales.
+
+## Perspectives d'amélioration
+
+Plusieurs pistes d'amélioration pourraient être explorées dans des
+travaux ultérieurs :
+
+1.  **Stacking (super-learner)** : Combiner les prédictions de plusieurs
+    modèles par méta-apprentissage pour réduire simultanément le biais
+    et la variance.
+2.  **Régression logistique pénalisée** (*Elastic Net*) : Ajouter une
+    régularisation pour produire un modèle *sparse* et interprétable,
+    potentiellement compétitif pour le déploiement en production.
+3.  **Optimisation du seuil de décision** : Adapter le seuil de
+    classification selon les coûts métier asymétriques des erreurs de
+    type I et II, via une analyse coût-bénéfice calibrée sur les données
+    de l'opérateur.
+4.  **Méthodes d'interprétabilité locale** : Appliquer SHAP (*SHapley
+    Additive exPlanations*) pour expliquer les prédictions individuelles
+    et identifier les facteurs de risque propres à chaque client,
+    rendant le modèle actionnable pour les équipes de rétention.
+5.  **Modèles de survie** : Si des données longitudinales sont
+    disponibles, une approche par modèles de survie (Cox, forêt de
+    survie) permettrait de modéliser non seulement le risque de churn
+    mais aussi son horizon temporel prévisible.
+6.  **Validation externe** : Évaluer la robustesse des conclusions sur
+    un jeu de données issu d'un autre opérateur ou d'une autre période
+    pour tester la généralisation inter-domaines.
+
+\newpage
+
+# Conclusion
+
+Cette étude présente une analyse comparative rigoureuse de dix
+algorithmes de classification supervisée pour la prédiction du churn
+client dans le secteur des télécommunications, conduite sur l'Iranian
+Churn Dataset (3 150 observations, 13 prédicteurs, \~16 % de churners).
+La méthodologie adoptée --- partitionnement stratifié 80/20, quatre
+recettes de prétraitement spécialisées, SMOTE anti-fuite intégré en
+dernière étape de chaque recette, validation croisée stratifiée à 10
+plis, et optimisation par Latin Hypercube combiné à la course ANOVA ---
+respecte les standards actuels du *machine learning* supervisé et
+garantit des estimations de performance robustes et non biaisées.
+
+Les résultats confirment la **supériorité des méthodes ensemblistes**
+(XGBoost, forêt aléatoire, bagging) pour cette tâche de classification
+déséquilibrée, tant en termes de ROC AUC que de F1-score. L'évaluation
+finale sur le jeu de test indépendant valide la capacité de
+généralisation du modèle sélectionné, sans surapprentissage significatif
+détecté. L'analyse d'importance des variables identifie les signaux les
+plus prédictifs du churn, offrant des *insights* directement
+actionnables pour les stratégies de rétention client.
+
+Sur le plan académique, ce projet illustre la puissance du cadre
+*tidymodels* pour la mise en place de pipelines de *machine learning*
+reproductibles, modulaires et extensibles. L'approche par `workflow_set`
+permet une comparaison simultanée et transparente de multiples
+combinaisons algorithme-prétraitement, réduisant les risques d'erreurs
+de protocole et facilitant la reproductibilité des résultats.
+
+\newpage
+
+# Références
+
+Breiman, L. (2001). Random forests. *Machine Learning*, 45(1), 5--32.
+https://doi.org/10.1023/A:1010933404324
+
+Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2002).
+SMOTE: Synthetic minority over-sampling technique. *Journal of
+Artificial Intelligence Research*, 16, 321--357.
+https://doi.org/10.1613/jair.953
+
+Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting
+system. In *Proceedings of the 22nd ACM SIGKDD International Conference
+on Knowledge Discovery and Data Mining* (pp. 785--794). ACM.
+https://doi.org/10.1145/2939672.2939785
+
+Cortes, C., & Vapnik, V. (1995). Support-vector networks. *Machine
+Learning*, 20(3), 145--168. https://doi.org/10.1007/BF00994018
+
+Cover, T., & Hart, P. (1967). Nearest neighbor pattern classification.
+*IEEE Transactions on Information Theory*, 13(1), 21--27.
+https://doi.org/10.1109/TIT.1967.1053964
+
+Fisher, R. A. (1936). The use of multiple measurements in taxonomic
+problems. *Annals of Eugenics*, 7(2), 179--188.
+https://doi.org/10.1111/j.1469-1809.1936.tb02137.x
+
+Jafari-Marandi, R., Denton, J., Idris, A., Smith, B. K., & Keramati, A.
+(2020). Optimum profit-driven churn decision making: innovative
+artificial neural networks in telecom industry. *Neural Computing and
+Applications*, 32(18), 14929--14962.
+https://doi.org/10.1007/s00521-020-04848-w
+
+Kuhn, M. (2021). *finetune: Extras for the 'tune' Package* (R package
+version 1.0.0). CRAN. https://CRAN.R-project.org/package=finetune
+
+Kuhn, M., & Silge, J. (2022). *Tidy Modeling with R*. O'Reilly Media.
+https://www.tmwr.org
+
+Kuhn, M., & Vaughan, D. (2023). *tidymodels: a collection of packages
+for modeling and machine learning using tidyverse principles*.
+https://www.tidymodels.org
+
+McKay, M. D., Beckman, R. J., & Conover, W. J. (1979). A comparison of
+three methods for selecting values of input variables in the analysis of
+output from a computer code. *Technometrics*, 21(2), 239--245.
+https://doi.org/10.2307/1268522
+
+UC Irvine Machine Learning Repository (2020). *Iranian Churn Dataset*
+\[jeu de données\].
+https://archive.uci.edu/dataset/563/iranian+churn+dataset

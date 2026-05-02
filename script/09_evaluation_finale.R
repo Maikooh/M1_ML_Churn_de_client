@@ -172,35 +172,31 @@ auc_val <- final_metrics |>
 plot_final_roc <- final_predictions |>
   roc_curve(truth = Churn, .pred_Yes, event_level = "second") |>
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_line(linewidth = 1.2, colour = palette_modeles[best_wflow_id]) +
-  geom_abline(linetype = "dashed", colour = "grey60", linewidth = 0.5) +
-  # annotate() évalue ses arguments immédiatement (contrairement à aes()),
-  # ce qui évite l'erreur "objet introuvable" après rm().
+  # Diagonale de référence
+  geom_abline(linetype = "dotted", colour = "grey70", linewidth = 0.5) +
+  # Courbe du meilleur modèle
+  geom_line(linewidth = 1, colour = palette_modeles[best_wflow_id]) +
+  # Étiquette de l'AUC simplifiée
   annotate(
-    geom       = "label",
-    x          = 0.75,
-    y          = 0.15,
-    label      = paste0("AUC = ", sprintf("%.3f", auc_val)),
-    size       = 4,
+    geom       = "text",
+    x          = 0.80,
+    y          = 0.10,
+    label      = paste0("AUC : ", sprintf("%.3f", auc_val)),
+    size       = 3.5,
     fontface   = "bold",
-    colour     = palette_modeles[best_wflow_id],
-    fill       = "white",
-    label.size = 0.4
+    colour     = "grey30"
   ) +
-  scale_x_continuous(labels = scales::label_percent()) +
-  scale_y_continuous(labels = scales::label_percent()) +
+  scale_x_continuous(labels = scales::label_percent(), expand = c(0.01, 0.01)) +
+  scale_y_continuous(labels = scales::label_percent(), expand = c(0.01, 0.01)) +
+  coord_equal() +
   labs(
-    title = paste0(
-      "Courbe ROC finale — ", noms_modeles[best_wflow_id]
-    ),
-    subtitle = "Évaluation sur le test set (données inédites)",
-    x = "1 − Spécificité (Taux de faux positifs)",
-    y = "Sensibilité (Recall)"
+    x = "Taux de faux positifs",
+    y = "Taux de vrais positifs"
   ) +
-  theme_minimal(base_size = 12) +
+  theme_minimal(base_size = 10) +
   theme(
-    plot.title    = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(colour = "grey40")
+    panel.grid.minor = element_blank(),
+    axis.title = element_text(size = 9, colour = "grey30")
   )
 
 
@@ -218,7 +214,7 @@ plot_final_conf_mat <- final_predictions |>
   mutate(
     pred_class = c("No", "Yes")[as.integer(pred_idx)],
     truth_class = c("No", "Yes")[as.integer(truth_idx)],
-    cell_type = case_when(
+    cell_label = case_when(
       pred_class == "No" & truth_class == "No" ~ "VN",
       pred_class == "Yes" & truth_class == "No" ~ "FP",
       pred_class == "No" & truth_class == "Yes" ~ "FN",
@@ -226,29 +222,27 @@ plot_final_conf_mat <- final_predictions |>
     )
   ) |>
   ggplot(aes(x = truth_class, y = pred_class, fill = value)) +
-  geom_tile(colour = "white", linewidth = 1) +
+  geom_tile(colour = "white", linewidth = 0.8) +
   geom_text(
-    aes(label = paste0(cell_type, "\n", value)),
-    size = 5, fontface = "bold", colour = "white"
-  ) +
-  scale_fill_gradient(
-    low  = "#B5D4F4",
-    high = palette_modeles[best_wflow_id],
-    name = "Effectif"
-  ) +
-  labs(
-    title = paste0(
-      "Matrice de confusion finale — ", noms_modeles[best_wflow_id]
+    aes(
+      label = paste0(cell_label, "\n", value),
+      colour = value > (max(value) / 2)
     ),
-    subtitle = "Test set | VN/VP = correct, FN/FP = erreur",
-    x = "Churn réel",
-    y = "Churn prédit"
+    size = 4.5, fontface = "bold", show.legend = FALSE
   ) +
-  theme_minimal(base_size = 13) +
+  # Dégradé utilisant la couleur de ton champion
+  scale_fill_gradient(
+    low = "#E3F2FD",
+    high = palette_modeles[best_wflow_id]
+  ) +
+  scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  coord_equal() +
+  labs(x = "Réel", y = "Prédit") +
+  theme_minimal(base_size = 11) +
   theme(
-    plot.title    = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(colour = "grey40"),
-    panel.grid    = element_blank()
+    panel.grid = element_blank(),
+    axis.text = element_text(face = "bold"),
+    legend.position = "none"
   )
 
 
@@ -272,21 +266,19 @@ if (best_wflow_id %in% modeles_avec_vip) {
       aesthetics = list(
         fill   = palette_modeles[best_wflow_id],
         colour = "white",
-        alpha  = 0.85
+        alpha  = 0.9
       )
     ) +
     labs(
-      title = paste0(
-        "Importance des variables — ", noms_modeles[best_wflow_id]
-      ),
-      subtitle = "15 variables les plus importantes",
-      x = "Importance",
+      x = "Importance relative",
       y = NULL
     ) +
-    theme_minimal(base_size = 12) +
+    theme_minimal(base_size = 10) +
     theme(
-      plot.title    = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(colour = "grey40")
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank(), # Épure l'axe des variables
+      axis.text.y = element_text(face = "bold"),
+      axis.title.x = element_text(size = 9, colour = "grey30")
     )
 } else {
   message(

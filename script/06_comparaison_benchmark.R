@@ -50,7 +50,6 @@ tableau_metriques <- benchmark_results |>
   rename(Modèle = wflow_id) |>
   kable(
     booktabs = TRUE,
-    caption  = "Comparaison des métriques de benchmark (moyenne ± erreur standard sur 10 folds)",
     align    = c("l", rep("c", 5))
   ) |>
   kable_styling(
@@ -68,22 +67,23 @@ plot_benchmark_roc <- benchmark_results |>
   filter(.metric == "roc_auc") |>
   mutate(wflow_id = fct_reorder(wflow_id, mean)) |>
   ggplot(aes(x = mean, y = wflow_id, colour = wflow_id)) +
-  geom_point(size = 3, show.legend = FALSE) +
+  # On réduit la taille des points et l'épaisseur pour le minimalisme
   geom_errorbar(
     aes(xmin = mean - 1.96 * std_err, xmax = mean + 1.96 * std_err),
-    width = 0.25, alpha = 0.6, show.legend = FALSE,
-    orientation = "y"
+    width = 0, # Supprime les barres perpendiculaires aux extrémités
+    alpha = 0.5,
+    linewidth = 0.8,
+    show.legend = FALSE
   ) +
+  geom_point(size = 2.5, show.legend = FALSE) +
   scale_colour_manual(values = palette_modeles) +
   scale_x_continuous(labels = scales::label_percent()) +
-  labs(
-    title    = "Classement des modèles par ROC AUC",
-    subtitle = "Moyenne ± 1,96 × erreur standard sur 10 folds de validation croisée",
-    x        = "ROC AUC",
-    y        = NULL
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(plot.title = element_text(face = "bold"))
+  labs(x = NULL, y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(), # Garde uniquement les lignes verticales pour comparer les scores
+  )
 
 
 # ── 3. Courbes ROC par modèle ────────────────────────────────────────────────
@@ -100,21 +100,25 @@ plot_roc_curves <- predictions_cv |>
   group_by(wflow_id) |>
   roc_curve(truth = Churn, .pred_Yes, event_level = "second") |>
   ggplot(aes(x = 1 - specificity, y = sensitivity, colour = wflow_id)) +
-  geom_line(linewidth = 0.75) +
-  geom_abline(linetype = "dashed", colour = "grey60", linewidth = 0.4) +
-  scale_colour_manual(values = palette_modeles, name = "Modèle") +
-  scale_x_continuous(labels = scales::label_percent()) +
-  scale_y_continuous(labels = scales::label_percent()) +
+  # Diagonale de référence (modèle aléatoire)
+  geom_abline(linetype = "dotted", colour = "grey70", linewidth = 0.5) +
+  geom_line(linewidth = 0.8, alpha = 0.9) +
+  scale_colour_manual(values = palette_modeles) +
+  # On réduit les marges blanches autour des courbes
+  scale_x_continuous(labels = scales::label_percent(), expand = c(0.01, 0.01)) +
+  scale_y_continuous(labels = scales::label_percent(), expand = c(0.01, 0.01)) +
+  # Force le ratio 1:1 pour une lecture honnête de l'AUC
+  coord_equal() +
   labs(
-    title    = "Courbes ROC – comparaison des modèles",
-    subtitle = "Probabilités agrégées sur les 10 folds | Diagonale = classifieur aléatoire",
-    x        = "1 – Spécificité (Taux de faux positifs)",
-    y        = "Sensibilité (Recall)"
+    x = "Taux de faux positifs",
+    y = "Taux de vrais positifs",
+    colour = NULL
   ) +
-  theme_minimal(base_size = 11) +
+  theme_minimal(base_size = 10) +
   theme(
-    plot.title      = element_text(face = "bold"),
-    legend.position = "right"
+    panel.grid.minor = element_blank(),
+    legend.position = "right",
+    axis.title = element_text(size = 9, colour = "grey30")
   )
 
 
@@ -175,7 +179,6 @@ plot_conf_matrices <- predictions_cv |>
   conf_mat(truth = Churn, estimate = .pred_class) |>
   mutate(tidied = map(conf_mat, tidy)) |>
   unnest(tidied) |>
-  # "cell_R_C" → 3 morceaux : préfixe "cell", indice ligne, indice colonne
   separate(name, into = c("prefix", "pred_idx", "truth_idx"), sep = "_") |>
   mutate(
     pred_class = c("No", "Yes")[as.integer(pred_idx)],
@@ -188,24 +191,30 @@ plot_conf_matrices <- predictions_cv |>
     )
   ) |>
   ggplot(aes(x = truth_class, y = pred_class, fill = value)) +
-  geom_tile(colour = "white") +
+  geom_tile(colour = "white", linewidth = 0.5) +
   geom_text(
-    aes(label = paste0(cell_type, "\n", value)),
-    size = 3, fontface = "bold", colour = "white"
+    aes(
+      label = paste0(cell_type, "\n", value),
+      # Le texte devient noir sur les cases claires et blanc sur les cases foncées
+      colour = value > (max(value) / 2)
+    ),
+    size = 2.8, fontface = "bold", show.legend = FALSE
   ) +
-  facet_wrap(~wflow_id, ncol = 5) +
-  scale_fill_gradient(low = "#B5D4F4", high = "#185FA5", name = "Effectif") +
+  facet_wrap(~wflow_id, ncol = 4) +
+  # Utilisation de la palette bleue cohérente avec tes autres graphiques
+  scale_fill_gradient(low = "#E3F2FD", high = "#185FA5") +
+  scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  coord_equal() +
   labs(
-    title    = "Matrices de confusion agrégées (10 folds)",
-    subtitle = "Lignes = Prédit | Colonnes = Réel | VN/VP = correct, FN/FP = erreur",
-    x        = "Churn réel",
-    y        = "Churn prédit"
+    x = "Réel",
+    y = "Prédit",
+    fill = NULL
   ) +
-  theme_minimal(base_size = 10) +
+  theme_minimal(base_size = 9) +
   theme(
-    plot.title  = element_text(face = "bold"),
-    panel.grid  = element_blank(),
-    strip.text  = element_text(size = 8)
+    panel.grid = element_blank(),
+    strip.text = element_text(face = "bold", size = 8),
+    legend.position = "none" # On enlève la légende pour épurer
   )
 
 

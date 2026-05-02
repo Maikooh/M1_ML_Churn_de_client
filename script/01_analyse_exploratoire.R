@@ -38,7 +38,6 @@ tableau_summary_num <- data |>
   ) |>
   kable(
     booktabs = TRUE,
-    caption  = "Statistiques descriptives des variables numériques",
     align    = c("l", rep("r", 8))
   ) |>
   kable_styling(
@@ -72,7 +71,6 @@ tableau_summary_cat <- data |>
   rename(`Modalité` = Modalite) |>
   kable(
     booktabs = TRUE,
-    caption  = "Statistiques descriptives des variables catégorielles",
     align    = c("l", "l", "r", "r", "r")
   ) |>
   kable_styling(
@@ -91,18 +89,26 @@ prop_churn <- data |>
   mutate(pct = round(n / sum(n) * 100, 1))
 
 plot_desequilibre <- ggplot(prop_churn, aes(x = Churn, y = n, fill = Churn)) +
-  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  # Chiffres à l'intérieur
   geom_text(
-    aes(label = paste0(pct, "%\n(n = ", n, ")")),
-    vjust = -0.4, size = 3.5, fontface = "bold"
+    aes(label = paste0(pct, "%")),
+    vjust = 2, size = 5, fontface = "bold", color = "white"
   ) +
-  scale_fill_manual(values = couleurs_churn) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
-  labs(
-    title    = "Déséquilibre de la variable cible",
-    subtitle = "La classe minoritaire (Churn = Yes) représente moins de 16 % des observations",
-    x        = "Churn",
-    y        = "Effectif"
+  geom_text(
+    aes(label = paste0(n)),
+    vjust = 5, size = 3, color = "white"
+  ) +
+  # Renommage des catégories ici
+  scale_fill_manual(
+    values = couleurs_churn,
+    labels = c("Yes" = "Churner", "No" = "Non Churner")
+  ) +
+  scale_x_discrete(labels = c("Yes" = "Churner", "No" = "Non Churner")) +
+  labs(x = NULL, y = NULL) +
+  theme_void() +
+  theme(
+    axis.text.x = element_text(face = "bold", size = 12, vjust = 3)
   )
 
 
@@ -117,15 +123,19 @@ plot_dist_num <- data |>
   ggplot(aes(x = value, fill = Churn, colour = Churn)) +
   geom_density(alpha = 0.35, linewidth = 0.5) +
   facet_wrap(~Variable, scales = "free", ncol = 3) +
-  scale_fill_manual(values = couleurs_churn) +
-  scale_colour_manual(values = couleurs_churn) +
+  scale_fill_manual(
+    values = couleurs_churn,
+    labels = c("No" = "Non Churner", "Yes" = "Churner")
+  ) +
+  scale_colour_manual(
+    values = couleurs_churn,
+    labels = c("No" = "Non Churner", "Yes" = "Churner")
+  ) +
   labs(
-    title    = "Distribution des variables numériques par classe",
-    subtitle = "Les variables avec des courbes bien séparées ont un fort pouvoir discriminant",
     x        = NULL,
-    y        = "Densité",
-    fill     = "Churn",
-    colour   = "Churn"
+    y        = NULL,
+    fill     = NULL, # Supprime le titre du remplissage
+    colour   = NULL # Supprime le titre de la bordure
   )
 
 
@@ -134,18 +144,25 @@ plot_dist_num <- data |>
 # Complète les densités en rendant visibles la médiane et les outliers.
 
 plot_boxplot_churn <- data |>
-  select(where(is.numeric), Churn) |>
+  # 1. On retire Age ET Subscription Length pour tomber à 6 graphiques (2x3)
+  select(where(is.numeric), Churn, -Age, -"Subscription  Length") |>
   pivot_longer(-Churn, names_to = "Variable") |>
   ggplot(aes(x = Churn, y = value, fill = Churn)) +
   geom_boxplot(outlier.size = 0.5, outlier.alpha = 0.4, linewidth = 0.4) +
   facet_wrap(~Variable, scales = "free_y", ncol = 3) +
-  scale_fill_manual(values = couleurs_churn) +
+  scale_fill_manual(
+    values = couleurs_churn,
+    labels = c("No" = "Non Churner", "Yes" = "Churner")
+  ) +
   labs(
-    title    = "Boxplots des variables numériques selon Churn",
-    subtitle = "Médiane, IQR et outliers par classe",
-    x        = "Churn",
+    x        = NULL,
     y        = NULL,
-    fill     = "Churn"
+    fill     = NULL
+  ) +
+  # 2. On supprime le texte "No" / "Yes" sous les graphiques
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
   )
 
 
@@ -168,33 +185,51 @@ cor_long <- cor_matrix |>
   # pas lexicographique — évite les artefacts si les noms ne sont pas triés).
   filter(match(Var1, var_ordre) >= match(Var2, var_ordre))
 
+ordre_variables <- unique(cor_long$Var1)
+cor_long$Var1 <- factor(cor_long$Var1, levels = ordre_variables)
+cor_long$Var2 <- factor(cor_long$Var2, levels = rev(ordre_variables))
+
+abreviations <- c(
+  "Call Failure"            = "Call Fail.",
+  "Customer Value"          = "Cust. Val.",
+  "Distinct Called Numbers" = "Dist. Call",
+  "Frequency of SMS"        = "Freq. SMS",
+  "Frequency of use"        = "Freq. Use",
+  "Seconds of Use"          = "Sec. Use",
+  "Subscription Length"     = "Sub. Len."
+)
+
 plot_correlation <- ggplot(cor_long, aes(x = Var1, y = Var2, fill = r)) +
-  geom_tile(colour = "white", linewidth = 0.4) +
+  geom_tile(colour = "white", linewidth = 0.3) +
   geom_text(
-    aes(label = round(r, 2)),
-    size = 2.8,
-    colour = ifelse(abs(cor_long$r) > 0.6, "white", "grey30")
+    aes(
+      label = sprintf("%.2f", r),
+      # Correction ici : on utilise r directement, pas cor_long$r
+      colour = abs(r) > 0.6
+    ),
+    size = 2.2
   ) +
+  # On définit les couleurs du texte séparément pour être plus propre
+  scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "grey30"), guide = "none") +
+  scale_x_discrete(labels = abreviations) +
+  scale_y_discrete(labels = abreviations) +
   scale_fill_gradient2(
     low      = "#185FA5",
     mid      = "white",
     high     = "#A32D2D",
     midpoint = 0,
     limits   = c(-1, 1),
-    name     = "r de\nPearson"
+    name     = NULL
   ) +
   coord_equal() +
+  theme_minimal() +
   theme(
-    axis.text.x  = element_text(angle = 35, hjust = 1, size = 8),
-    axis.text.y  = element_text(size = 8),
-    panel.grid   = element_blank()
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 7.5),
+    axis.text.y = element_text(size = 7.5),
+    panel.grid = element_blank(),
+    legend.key.height = unit(0.6, "cm")
   ) +
-  labs(
-    title    = "Matrice de corrélation des variables numériques",
-    subtitle = "Triangle inférieur – méthode de Pearson",
-    x        = NULL,
-    y        = NULL
-  )
+  labs(x = NULL, y = NULL)
 
 
 # ── 7. Variables catégorielles – taux de churn par modalité ──────────────────
@@ -226,14 +261,12 @@ plot_cat_churn <- data |>
   ggplot(aes(x = Modalite, y = pct, fill = Churn)) +
   geom_col(position = "stack", width = 0.6) +
   facet_wrap(~Variable, scales = "free_x", ncol = 3) +
-  scale_fill_manual(values = couleurs_churn) +
-  scale_y_continuous(labels = scales::label_percent(scale = 1)) +
+  scale_fill_manual(values = couleurs_churn, labels = c("No" = "Non Churner", "Yes" = "Churner")) +
+  scale_y_continuous(labels = scales::label_percent(scale = 1), ) +
   labs(
-    title    = "Taux de churn par modalité des variables catégorielles",
-    subtitle = "Proportions empilées – une disparité forte indique un bon prédicteur",
     x        = NULL,
-    y        = "Proportion (%)",
-    fill     = "Churn"
+    y        = NULL,
+    fill     = NULL
   ) +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 8))
 
